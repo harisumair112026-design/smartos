@@ -82,6 +82,7 @@ ls -lh layer.squashfs new.squashfs
 
 echo "== 6/6 ISO dobara pack kar raha hoon (boot settings waisi hi rakhte hue) =="
 rm -rf tree layer.squashfs
-xorriso -indev in.iso -outdev "$OUT_DIR/$OUT_NAME" -boot_image any replay -rm "$LAYER" -- -map new.squashfs "$LAYER" -commit
-ls -lh "$OUT_DIR/$OUT_NAME"
-echo "DONE: $OUT_DIR/$OUT_NAME"
+case "$OUT_NAME" in /*) OUT="$OUT_NAME";; *) OUT="$OUT_DIR/$OUT_NAME";; esac
+xorriso -indev in.iso -outdev "$OUT" -boot_image any replay -rm "$LAYER" -- -map new.squashfs "$LAYER" -commit
+ls -lh "$OUT"
+echo "DONE: $OUT"
