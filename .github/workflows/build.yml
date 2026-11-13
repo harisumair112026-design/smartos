@@ -1,0 +1,30 @@
+name: Build SmartOS-Lubuntu ISO
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /opt/hostedtoolcache/CodeQL
+          df -h / /mnt
+      - name: Remaster Lubuntu -> Smart OS
+        run: sudo bash remaster.sh Smart_OS_V_1_110.html "$GITHUB_WORKSPACE/SmartOS-Lubuntu.iso"
+      - name: Hash + 1GB parts
+        run: |
+          sha256sum SmartOS-Lubuntu.iso > SmartOS-Lubuntu.iso.sha256
+          split -b 1000M -d -a 2 SmartOS-Lubuntu.iso SmartOS-Lubuntu.iso.part
+          rm SmartOS-Lubuntu.iso
+          ls -lh
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: iso-${{ github.run_number }}
+          files: |
+            SmartOS-Lubuntu.iso.part*
+            SmartOS-Lubuntu.iso.sha256
