@@ -1,0 +1,11 @@
+name: Inspect Lubuntu ISO (login screen)
+on:
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+      - run: sudo bash inspect2.sh
