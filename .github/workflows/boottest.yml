@@ -55,7 +55,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release view boottest >/dev/null 2>&1 || gh release create boottest -t "boot test shots" -n "auto" 
+          R="$GITHUB_REPOSITORY"; gh release view boottest -R $R >/dev/null 2>&1 || gh release create boottest -R $R -t "boot test shots" -n "auto" 
           for f in shots/*.png; do cp "$f" "${{ matrix.mode }}-$(basename $f)"; done
           cp boot-${{ matrix.mode }}.mp4 .
-          gh release upload boottest ${{ matrix.mode }}-f*.png boot-${{ matrix.mode }}.mp4 --clobber
+          gh release upload boottest -R $R ${{ matrix.mode }}-f*.png boot-${{ matrix.mode }}.mp4 --clobber
