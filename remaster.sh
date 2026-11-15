@@ -88,7 +88,9 @@ if LG and os.path.exists(LG):
 else:
   logo=lambda x,y,z:f'<g transform="translate({x},{y}) scale({z/256})"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#1d3fa8"/></linearGradient></defs><rect x="8" y="8" width="240" height="240" rx="52" fill="url(#g)"/><text x="128" y="188" font-family="DejaVu Sans" font-weight="bold" font-size="176" text-anchor="middle" fill="#ffffff">S</text></g>'
 if style=='icon':
-    body=logo(0,0,s)
+    body=logo((w-s)/2,(h-s)/2,s)
+elif style=='wordmark':
+    body=f'<text x="{w/2}" y="{h*0.66}" font-family="DejaVu Sans" font-weight="bold" font-size="{h*0.4}" text-anchor="middle" fill="#ffffff">Smart OS</text>'
 elif style=='transparent':   # plymouth: logo + naam, transparent
     z=min(h*0.62,w*0.5);body=logo((w-z)/2,h*0.04,z)+f'<text x="{w/2}" y="{h*0.93}" font-family="DejaVu Sans" font-weight="bold" font-size="{h*0.2}" text-anchor="middle" fill="#ffffff">Smart OS</text>'
 else:                        # welcome: gaharа background + logo + naam
@@ -189,17 +191,30 @@ EXTRA_MAPS=()
 xorriso -osirrox on -indev in.iso -extract /casper/initrd initrd.orig >/dev/null 2>&1 || true
 if [ -s initrd.orig ]; then
   rm -rf ird; unmkinitramfs initrd.orig ird >/dev/null 2>&1 || true
-  TD="$(find ird -type d -path '*usr/share/plymouth/themes/spinner' | head -1)"
-  if [ -n "$TD" ]; then
-    rm -rf stage; mkdir -p stage/usr/share/plymouth/themes/spinner
-    for f in bgrt-fallback watermark; do
-      if [ -f "$TD/$f.png" ]; then read w h < <(png_size "$TD/$f.png"); mkart "pl_$f" "$w" "$h" transparent && cp "art/pl_$f.png" "stage/usr/share/plymouth/themes/spinner/$f.png"; fi
+  rm -rf stage; mkdir -p stage
+  stage_theme(){ # $1 = theme folder (ird ke andar)
+    local rel; rel="$(echo "$1" | sed 's|^ird/[^/]*/||')"; mkdir -p "stage/$rel"
+    local f b st w h key
+    for f in "$1"/*.png; do [ -f "$f" ] || continue; b="$(basename "$f")"
+      case "$b" in
+        watermark.png) st=wordmark;;
+        bgrt-fallback.png) st=transparent;;
+        animation-*.png|throbber-*.png|lubuntu_logo.png) st=icon;;
+        *) continue;;
+      esac
+      read w h < <(png_size "$f"); key="${st}_${w}x${h}"
+      [ -f "art/$key.png" ] || mkart "$key" "$w" "$h" "$st"
+      cp "art/$key.png" "stage/$rel/$b"
     done
-    ls -la stage/usr/share/plymouth/themes/spinner
+  }
+  NT=0
+  for TD in $(find ird -type d \( -path '*usr/share/plymouth/themes/spinner' -o -path '*usr/share/plymouth/themes/lubuntu-logo' -o -path '*usr/share/plymouth/themes/lubuntu-logo/spinner' \)); do stage_theme "$TD"; NT=$((NT+1)); done
+  if [ "$NT" -gt 0 ]; then
+    echo "plymouth themes badle: $NT"; find stage -type f | wc -l
     (cd stage && find . | cpio -o -H newc --quiet) | gzip -9 > extra.cpio.gz
     cat initrd.orig extra.cpio.gz > initrd.new
     EXTRA_MAPS+=(-rm /casper/initrd -- -map initrd.new /casper/initrd)
-  else echo "WARN: plymouth spinner theme initrd me nahi mili"; fi
+  else echo "WARN: plymouth theme initrd me nahi mili"; fi
 else echo "WARN: initrd extract nahi hua"; fi
 
 cat > grub.cfg <<'EOS'
