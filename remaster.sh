@@ -72,13 +72,21 @@ EOS
 
 echo "== 5/7 Rebrand: logo/images banana =="
 mkdir -p art
+# Apna logo: repo me branding/logo.png rakho (chorus PNG, transparent). Mile to wahi use hota hai.
+export SMARTOS_LOGO="$(dirname "$(readlink -f "$0")")/branding/logo.png"
+[ -f "$SMARTOS_LOGO" ] && echo "Custom logo mila: $SMARTOS_LOGO" || echo "Custom logo nahi mila, default 'S' logo banega"
 png_size(){ python3 -c "import struct,sys;d=open(sys.argv[1],'rb').read(24);print(*struct.unpack('>II',d[16:24]))" "$1"; }
 mkart(){ # naam W H style  -> art/naam.png
   python3 - "$1" "$2" "$3" "$4" <<'PY'
-import sys
+import sys,os,base64
 n,w,h,style=sys.argv[1],int(sys.argv[2]),int(sys.argv[3]),sys.argv[4]
 s=min(w,h)
-logo=lambda x,y,z:f'<g transform="translate({x},{y}) scale({z/256})"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#1d3fa8"/></linearGradient></defs><rect x="8" y="8" width="240" height="240" rx="52" fill="url(#g)"/><text x="128" y="188" font-family="DejaVu Sans" font-weight="bold" font-size="176" text-anchor="middle" fill="#ffffff">S</text></g>'
+LG=os.environ.get('SMARTOS_LOGO','')
+if LG and os.path.exists(LG):
+    uri='data:image/png;base64,'+base64.b64encode(open(LG,'rb').read()).decode()
+    logo=lambda x,y,z:f'<image x="{x}" y="{y}" width="{z}" height="{z}" preserveAspectRatio="xMidYMid meet" href="{uri}"/>'
+else:
+  logo=lambda x,y,z:f'<g transform="translate({x},{y}) scale({z/256})"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4f8cff"/><stop offset="1" stop-color="#1d3fa8"/></linearGradient></defs><rect x="8" y="8" width="240" height="240" rx="52" fill="url(#g)"/><text x="128" y="188" font-family="DejaVu Sans" font-weight="bold" font-size="176" text-anchor="middle" fill="#ffffff">S</text></g>'
 if style=='icon':
     body=logo(0,0,s)
 elif style=='transparent':   # plymouth: logo + naam, transparent
