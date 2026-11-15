@@ -15,12 +15,12 @@ jobs:
           gh release download iso-3 -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*'
           cat SmartOS-Lubuntu.iso.part* > in.iso && rm SmartOS-Lubuntu.iso.part*
           xorriso -osirrox on -indev in.iso -extract /casper/initrd initrd.new >/dev/null 2>&1
-          ls -l initrd.new; file initrd.new
-          mkdir x && unmkinitramfs initrd.new x; ls x
-          echo "=== themes"; find x -path '*plymouth*' \( -name '*.plymouth' -o -name 'default*' \) | head
-          echo "=== plymouthd.conf / defaults"; find x -name 'plymouthd*' | while read f; do echo "-- $f"; cat "$f"; done
-          echo "=== spinner.plymouth"; cat $(find x -name spinner.plymouth | head -1)
-          echo "=== png list"
-          find x -path '*plymouth*' -name '*.png' ! -name 'throbber*' ! -name 'animation*' | while read f; do python3 -c "import sys,hashlib;from PIL import Image;f=sys.argv[1];print(f,Image.open(f).size,hashlib.md5(open(f,'rb').read()).hexdigest()[:8])" "$f"; done
-          echo "=== which files exist more than once in the cpio stream"
-          cd x; for s in early early2 main; do [ -d $s ] && echo "seg $s: $(find $s -name 'watermark.png' -o -name 'bgrt-fallback.png' | tr '\n' ' ')"; done
+          mkdir x && unmkinitramfs initrd.new x
+          T=x/main/usr/share/plymouth/themes
+          echo "=== default.plymouth"; ls -l $T/default.plymouth
+          for f in $T/lubuntu-logo/lubuntu-logo.plymouth $T/lubuntu-logo/spinner/spinner.plymouth $T/lubuntu-logo/bgrt/bgrt.plymouth; do echo "--- $f"; cat $f; done
+          echo "=== files in lubuntu-logo (non-animation)"
+          find $T/lubuntu-logo -type f ! -name 'throbber*' ! -name 'animation*' -printf '%P %s\n'
+          find $T/lubuntu-logo -type l -printf 'LINK %P -> %l\n'
+          echo "=== sizes"
+          find $T/lubuntu-logo -name '*.png' ! -name 'throbber*' ! -name 'animation*' | while read f; do python3 -c "import sys;from PIL import Image;print(sys.argv[1][len(sys.argv[2]):],Image.open(sys.argv[1]).size)" "$f" "$T/"; done
