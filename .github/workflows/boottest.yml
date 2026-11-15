@@ -1,0 +1,57 @@
+name: boot-test
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        default: "iso-3"
+jobs:
+  boot:
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [uefi, bios]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 ovmf ffmpeg socat
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
+          ls -l /dev/kvm || echo "NO KVM"
+      - name: Download ISO
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p iso && cd iso
+          gh release download "${{ inputs.tag }}" -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*' -p '*.sha256'
+          cat SmartOS-Lubuntu.iso.part* > SmartOS-Lubuntu.iso
+          rm SmartOS-Lubuntu.iso.part*
+          sha256sum -c SmartOS-Lubuntu.iso.sha256
+      - name: Boot and capture
+        run: |
+          mkdir -p shots
+          if [ "${{ matrix.mode }}" = uefi ]; then FW="-bios /usr/share/ovmf/OVMF.fd"; else FW=""; fi
+          ACCEL="-accel kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-accel tcg"
+          qemu-system-x86_64 $ACCEL $FW -m 3072 -smp 2 -vga std \
+            -cdrom iso/SmartOS-Lubuntu.iso -boot d -display none \
+            -netdev user,id=n0 -device e1000,netdev=n0 \
+            -monitor unix:/tmp/mon,server,nowait &
+          sleep 5
+          for i in $(seq -w 1 60); do
+            echo "screendump $PWD/shots/f$i.ppm" | socat - UNIX-CONNECT:/tmp/mon >/dev/null || true
+            sleep 10
+          done
+          echo quit | socat - UNIX-CONNECT:/tmp/mon || true
+          cd shots
+          for f in *.ppm; do ffmpeg -loglevel error -y -i "$f" "${f%.ppm}.png"; rm "$f"; done
+          ffmpeg -loglevel error -y -framerate 3 -pattern_type glob -i 'f*.png' -c:v libx264 -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" ../boot-${{ matrix.mode }}.mp4
+          ls | wc -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boot-${{ matrix.mode }}
+          path: |
+            shots/*.png
+            boot-${{ matrix.mode }}.mp4
