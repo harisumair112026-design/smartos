@@ -20,11 +20,7 @@ jobs:
           echo "=== themes"; find x -path '*plymouth*' \( -name '*.plymouth' -o -name 'default*' \) | head
           echo "=== plymouthd.conf / defaults"; find x -name 'plymouthd*' | while read f; do echo "-- $f"; cat "$f"; done
           echo "=== spinner.plymouth"; cat $(find x -name spinner.plymouth | head -1)
-          echo "=== png list"; find x -path '*plymouth*' -name '*.png' ! -name 'throbber*' ! -name 'animation*' | while read f; do python3 - "$f" <<'PY'
-import sys,hashlib
-from PIL import Image
-f=sys.argv[1]; i=Image.open(f); print(f, i.size, hashlib.md5(open(f,'rb').read()).hexdigest()[:8])
-PY
-done
+          echo "=== png list"
+          find x -path '*plymouth*' -name '*.png' ! -name 'throbber*' ! -name 'animation*' | while read f; do python3 -c "import sys,hashlib;from PIL import Image;f=sys.argv[1];print(f,Image.open(f).size,hashlib.md5(open(f,'rb').read()).hexdigest()[:8])" "$f"; done
           echo "=== which files exist more than once in the cpio stream"
           cd x; for s in early early2 main; do [ -d $s ] && echo "seg $s: $(find $s -name 'watermark.png' -o -name 'bgrt-fallback.png' | tr '\n' ' ')"; done
