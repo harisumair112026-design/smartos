@@ -1,0 +1,30 @@
+name: Inspect initrd splash
+on:
+  workflow_dispatch:
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Get ISO and look at initrd
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get install -y -qq xorriso initramfs-tools-core python3-pil >/dev/null
+          mkdir w && cd w
+          gh release download iso-3 -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*'
+          cat SmartOS-Lubuntu.iso.part* > in.iso && rm SmartOS-Lubuntu.iso.part*
+          xorriso -osirrox on -indev in.iso -extract /casper/initrd initrd.new >/dev/null 2>&1
+          ls -l initrd.new; file initrd.new
+          mkdir x && unmkinitramfs initrd.new x; ls x
+          echo "=== themes"; find x -path '*plymouth*' \( -name '*.plymouth' -o -name 'default*' \) | head
+          echo "=== plymouthd.conf / defaults"; find x -name 'plymouthd*' | while read f; do echo "-- $f"; cat "$f"; done
+          echo "=== spinner.plymouth"; cat $(find x -name spinner.plymouth | head -1)
+          echo "=== png list"; find x -path '*plymouth*' -name '*.png' ! -name 'throbber*' ! -name 'animation*' | while read f; do python3 - "$f" <<'PY'
+import sys,hashlib
+from PIL import Image
+f=sys.argv[1]; i=Image.open(f); print(f, i.size, hashlib.md5(open(f,'rb').read()).hexdigest()[:8])
+PY
+done
+          echo "=== which files exist more than once in the cpio stream"
+          cd x; for s in early early2 main; do [ -d $s ] && echo "seg $s: $(find $s -name 'watermark.png' -o -name 'bgrt-fallback.png' | tr '\n' ' ')"; done
