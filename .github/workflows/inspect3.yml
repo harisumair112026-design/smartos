@@ -10,7 +10,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          sudo apt-get install -y -qq xorriso initramfs-tools-core python3-pil >/dev/null
+          sudo apt-get update -qq; sudo apt-get install -y -qq xorriso initramfs-tools-core python3-pil >/dev/null
           mkdir w && cd w
           gh release download iso-3 -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*'
           cat SmartOS-Lubuntu.iso.part* > in.iso && rm SmartOS-Lubuntu.iso.part*
