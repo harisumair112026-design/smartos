@@ -38,6 +38,7 @@ python3 - <<PY
 p='tree/opt/smartos/index.html'
 s=open(p,encoding='utf-8').read()
 js=open('$HERE/linuxapps.js',encoding='utf-8').read()
+s=s.replace('navigator.storage.persist&&navigator.storage.persist()','0')  # Firefox popup band
 i=s.rfind('</body>')
 open(p,'w',encoding='utf-8').write(s[:i]+'<script>\n'+js+'</script>\n'+s[i:])
 PY
