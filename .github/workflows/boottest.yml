@@ -12,6 +12,8 @@ jobs:
       matrix:
         mode: [uefi, bios]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     timeout-minutes: 40
     steps:
       - name: Tools
@@ -49,9 +51,11 @@ jobs:
           for f in *.ppm; do ffmpeg -loglevel error -y -i "$f" "${f%.ppm}.png"; rm "$f"; done
           ffmpeg -loglevel error -y -framerate 3 -pattern_type glob -i 'f*.png' -c:v libx264 -pix_fmt yuv420p -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" ../boot-${{ matrix.mode }}.mp4
           ls | wc -l
-      - uses: actions/upload-artifact@v4
-        with:
-          name: boot-${{ matrix.mode }}
-          path: |
-            shots/*.png
-            boot-${{ matrix.mode }}.mp4
+      - name: Publish shots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view boottest >/dev/null 2>&1 || gh release create boottest -t "boot test shots" -n "auto" 
+          for f in shots/*.png; do cp "$f" "${{ matrix.mode }}-$(basename $f)"; done
+          cp boot-${{ matrix.mode }}.mp4 .
+          gh release upload boottest ${{ matrix.mode }}-f*.png boot-${{ matrix.mode }}.mp4 --clobber
