@@ -3,7 +3,7 @@
 set -euo pipefail
 OUT="$(pwd)/out"; mkdir -p "$OUT" work; cd work
 curl -fsSL https://raw.githubusercontent.com/alpinelinux/aports/master/main/linux-lts/lts.x86_64.config -o lts.config
-V="$(grep -m1 -o 'Linux/x86_64 [0-9.]*' lts.config | awk '{print $2}')"; echo "Alpine lts config version: $V"
+V="$(curl -fsSL https://raw.githubusercontent.com/alpinelinux/aports/master/main/linux-lts/APKBUILD | grep -m1 '^pkgver=' | cut -d= -f2)"; echo "Alpine lts version: $V"
 MM="${V%.*}"
 if ! curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v${V%%.*}.x/linux-$V.tar.xz" -o k.tar.xz; then
   V="$(curl -fsSL https://www.kernel.org/releases.json | python3 -c "import json,sys;r=json.load(sys.stdin)['releases'];print([x['version'] for x in r if x['version'].startswith('$MM.')][0])")"
