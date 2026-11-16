@@ -1,0 +1,4 @@
+#!/bin/sh
+mkdir -p /run/user/1000; chown smart:smart /run/user/1000; chmod 700 /run/user/1000
+# Debug: serial par RAM ki jaankari (sirf agar serial hai)
+[ -c /dev/ttyS0 ] && ( sleep 100; { echo "=== RAM ==="; free -m; echo "=== top procs ==="; ps -o rss,comm | sort -rn | head -8; } > /dev/ttyS0 ) &

@@ -1,0 +1,20 @@
+#!/bin/sh
+export XDG_RUNTIME_DIR=/run/user/1000 LIBSEAT_BACKEND=seatd MOZ_ENABLE_WAYLAND=1 WLR_NO_HARDWARE_CURSORS=1 WLR_RENDERER_ALLOW_SOFTWARE=1
+pgrep -f /opt/smartos/helper.py >/dev/null || python3 /opt/smartos/helper.py >/dev/null 2>&1 &
+i=0; while [ $i -lt 60 ]; do wget -q -O /dev/null http://127.0.0.1:8080/ && break; sleep 0.3; i=$((i+1)); done
+P=$HOME/kiosk; mkdir -p $P
+cat > $P/user.js <<'UJS'
+user_pref("permissions.default.geo", 2);
+user_pref("permissions.default.desktop-notification", 2);
+user_pref("geo.enabled", false);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("browser.aboutwelcome.enabled", false);
+user_pref("media.autoplay.default", 0);
+user_pref("media.autoplay.blocking_policy", 0);
+user_pref("browser.cache.disk.enable", false);
+user_pref("browser.sessionstore.interval", 600000);
+user_pref("dom.ipc.processCount", 2);
+user_pref("layers.acceleration.disabled", true);
+UJS
+while true; do cage -s -- firefox --kiosk --no-remote --profile $P http://127.0.0.1:8080/; sleep 1; done

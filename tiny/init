@@ -1,0 +1,27 @@
+#!/bin/busybox sh
+export PATH=/bin:/sbin
+mount -t proc proc /proc; mount -t sysfs sys /sys; mount -t devtmpfs dev /dev
+echo "Smart OS: boot shuru"
+mkdir -p /iso /ro /rw /new
+FOUND=""; n=0
+while [ $n -lt 90 ] && [ -z "$FOUND" ]; do
+  for d in /dev/sr* /dev/sd* /dev/vd* /dev/nvme*n* /dev/hd*; do
+    [ -b "$d" ] || continue
+    if mount -t iso9660 -o ro "$d" /iso 2>/dev/null; then
+      if [ -f /iso/smartos.sfs ]; then FOUND="$d"; break; fi
+      umount /iso
+    fi
+  done
+  [ -z "$FOUND" ] && sleep 1
+  n=$((n+1))
+done
+if [ -z "$FOUND" ]; then echo "Smart OS: ISO nahi mili (USB/CD check karo)"; exec sh; fi
+echo "Smart OS: ISO mili $FOUND"
+mount -t squashfs -o ro,loop /iso/smartos.sfs /ro || { echo "squashfs mount fail"; exec sh; }
+mount -t tmpfs -o size=50%,mode=755 tmpfs /rw
+mkdir -p /rw/u /rw/w
+mount -t overlay overlay -o lowerdir=/ro,upperdir=/rw/u,workdir=/rw/w /new || { echo "overlay fail"; exec sh; }
+mkdir -p /new/mnt/iso /new/mnt/ro /new/mnt/rw
+mount --move /iso /new/mnt/iso; mount --move /ro /new/mnt/ro; mount --move /rw /new/mnt/rw
+mount --move /dev /new/dev; mount --move /proc /new/proc; mount --move /sys /new/sys
+exec switch_root /new /sbin/init

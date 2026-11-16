@@ -1,0 +1,64 @@
+name: tiny-build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential bc flex bison libssl-dev libelf-dev cpio xz-utils zstd python3 \
+            grub-pc-bin grub-efi-amd64-bin xorriso mtools squashfs-tools busybox-static qemu-system-x86 ovmf ffmpeg socat
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
+      - name: Kernel
+        run: bash tiny/build-kernel.sh
+      - name: Smart OS page
+        run: |
+          python3 - <<'PY'
+          s=open('Smart_OS_V_1_110.html',encoding='utf-8').read()
+          js=open('linuxapps.js',encoding='utf-8').read()
+          s=s.replace('navigator.storage.persist&&navigator.storage.persist()','0')
+          i=s.rfind('</body>')
+          open('out/index.html','w',encoding='utf-8').write(s[:i]+'<script>\n'+js+'</script>\n'+s[i:])
+          PY
+      - name: Rootfs (Alpine)
+        run: sudo docker run --rm --privileged -v "$PWD":/w alpine:latest sh /w/tiny/rootfs.sh
+      - name: ISO
+        run: sudo bash tiny/make-iso.sh
+      - name: Publish ISO
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          T=tiny-${{ github.run_number }}
+          gh release create $T -t "Smart OS Tiny $T" -n "Own-kernel build" out/SmartOS-Tiny.iso out/SmartOS-Tiny.iso.sha256 out/kernel.config
+      - name: Boot test 1GB
+        run: |
+          mkdir shots
+          ACCEL="-accel kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-accel tcg"
+          sudo chmod 666 /dev/kvm 2>/dev/null || true
+          qemu-system-x86_64 $ACCEL -bios /usr/share/ovmf/OVMF.fd -m 1024 -smp 2 -vga std \
+            -cdrom out/SmartOS-Tiny.iso -boot d -display none -serial file:$PWD/serial.log \
+            -netdev user,id=n0 -device e1000,netdev=n0 -monitor unix:/tmp/mon,server,nowait &
+          sleep 5
+          for i in $(seq -w 1 36); do
+            echo "screendump $PWD/shots/f$i.ppm" | socat - UNIX-CONNECT:/tmp/mon >/dev/null || true
+            sleep 10
+          done
+          echo quit | socat - UNIX-CONNECT:/tmp/mon || true
+          cd shots; for f in *.ppm; do ffmpeg -loglevel error -y -i "$f" "${f%.ppm}.png"; rm "$f"; done
+      - name: Publish test shots
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view tinytest >/dev/null 2>&1 || gh release create tinytest -t "tiny test shots" -n auto
+          for f in shots/*.png; do cp "$f" "t${{ github.run_number }}-$(basename $f)"; done
+          cp serial.log "t${{ github.run_number }}-serial.txt" 2>/dev/null || true
+          gh release upload tinytest t${{ github.run_number }}-* --clobber
