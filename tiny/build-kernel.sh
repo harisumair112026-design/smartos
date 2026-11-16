@@ -2,7 +2,7 @@
 # Apna Linux kernel compile: kernel.org source + Alpine lts config (known-good), zaroori cheezein built-in
 set -euo pipefail
 OUT="$(pwd)/out"; mkdir -p "$OUT" work; cd work
-curl -fsSL https://gitlab.alpinelinux.org/alpine/aports/-/raw/master/main/linux-lts/lts.x86_64.config -o lts.config
+curl -fsSL https://raw.githubusercontent.com/alpinelinux/aports/master/main/linux-lts/lts.x86_64.config -o lts.config
 V="$(grep -m1 -o 'Linux/x86_64 [0-9.]*' lts.config | awk '{print $2}')"; echo "Alpine lts config version: $V"
 MM="${V%.*}"
 if ! curl -fsSL "https://cdn.kernel.org/pub/linux/kernel/v${V%%.*}.x/linux-$V.tar.xz" -o k.tar.xz; then
