@@ -1,0 +1,40 @@
+name: gofile-upload
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        default: "iso-6"
+jobs:
+  up:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - name: Download and join
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir iso && cd iso
+          gh release download "${{ inputs.tag }}" -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*' -p '*.sha256'
+          cat SmartOS-Lubuntu.iso.part* > SmartOS-Lubuntu.iso; rm SmartOS-Lubuntu.iso.part*
+          sha256sum -c SmartOS-Lubuntu.iso.sha256; ls -l
+      - name: Upload to GoFile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd iso
+          curl -sS --retry 3 -F "file=@SmartOS-Lubuntu.iso" https://upload.gofile.io/uploadfile | tee up1.json
+          echo
+          curl -sS --retry 3 -F "file=@SmartOS-Lubuntu.iso.sha256" https://upload.gofile.io/uploadfile | tee up2.json
+          echo
+          python3 - <<'PY'
+          import json
+          for f in ('up1.json','up2.json'):
+              d=json.load(open(f)); print(f, d.get('status'), d.get('data',{}).get('downloadPage'))
+          PY
+          python3 -c "import json;print(json.load(open('up1.json'))['data']['downloadPage'])" > ../gofile-link.txt
+          cd ..
+          gh release view gofile -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create gofile -R "$GITHUB_REPOSITORY" -t "gofile links" -n auto
+          gh release upload gofile -R "$GITHUB_REPOSITORY" gofile-link.txt --clobber
