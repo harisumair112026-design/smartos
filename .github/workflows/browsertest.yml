@@ -1,0 +1,29 @@
+name: browser-test
+on:
+  workflow_dispatch:
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Install
+        run: |
+          cd bt && npm init -y >/dev/null && npm i playwright@1.49.1 >/dev/null
+          npx playwright install --with-deps chromium firefox webkit >/dev/null 2>&1
+      - name: Run
+        run: |
+          cd bt && (python3 -m http.server 8099 >/dev/null 2>&1 &) ; sleep 2
+          node test.js app.html | tee out.txt
+      - name: Publish
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd bt
+          gh release view browsertest -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create browsertest -R "$GITHUB_REPOSITORY" -t "browser test" -n auto
+          gh release upload browsertest -R "$GITHUB_REPOSITORY" shot-*.png results.json out.txt --clobber
