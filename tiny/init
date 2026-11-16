@@ -15,7 +15,7 @@ while [ $n -lt 90 ] && [ -z "$FOUND" ]; do
   [ -z "$FOUND" ] && sleep 1
   n=$((n+1))
 done
-if [ -z "$FOUND" ]; then echo "Smart OS: ISO nahi mili (USB/CD check karo)"; exec sh; fi
+if [ -z "$FOUND" ]; then echo "Smart OS: ISO nahi mili (USB/CD check karo)"; ls /dev; cat /proc/partitions; exec sh; fi
 echo "Smart OS: ISO mili $FOUND"
 mount -t squashfs -o ro,loop /iso/smartos.sfs /ro || { echo "squashfs mount fail"; exec sh; }
 mount -t tmpfs -o size=50%,mode=755 tmpfs /rw

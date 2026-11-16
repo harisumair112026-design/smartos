@@ -1,6 +1,10 @@
 name: tiny-build
 on:
   workflow_dispatch:
+    inputs:
+      reuse:
+        description: "Purana kernel is release tag se lo (khali = naya compile)"
+        default: "tiny-4"
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -18,7 +22,18 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
       - name: Kernel
+        if: inputs.reuse == ''
         run: bash tiny/build-kernel.sh
+      - name: Kernel (reuse)
+        if: inputs.reuse != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p out old && cd old
+          gh release download "${{ inputs.reuse }}" -R "$GITHUB_REPOSITORY" -p SmartOS-Tiny.iso
+          xorriso -osirrox on -indev SmartOS-Tiny.iso -extract /boot/vmlinuz ../out/vmlinuz -extract /smartos.sfs sfs >/dev/null 2>&1
+          mkdir -p ../out/modroot/lib; unsquashfs -d m sfs lib/modules >/dev/null; cp -a m/lib/modules ../out/modroot/lib/
+          ls -lh ../out/vmlinuz; du -sh ../out/modroot; cd ..; rm -rf old
       - name: Smart OS page
         run: |
           python3 - <<'PY'
