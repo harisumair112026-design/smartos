@@ -48,6 +48,15 @@ cat > tree/usr/local/bin/smartos-session <<'EOS'
 pgrep -f "/opt/smartos/helper.py" >/dev/null || python3 /opt/smartos/helper.py &
 for i in $(seq 1 60); do (exec 3<>/dev/tcp/127.0.0.1/8080) 2>/dev/null && break; sleep 0.3; done
 P="$HOME/snap/firefox/common/smartos-kiosk"; mkdir -p "$P" 2>/dev/null || P="$HOME/.smartos-kiosk"; mkdir -p "$P"
+cat > "$P/user.js" <<'UJS'
+user_pref("permissions.default.geo", 2);
+user_pref("permissions.default.desktop-notification", 2);
+user_pref("permissions.default.persistent-storage", 1);
+user_pref("geo.enabled", false);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("datareporting.policy.dataSubmissionEnabled", false);
+user_pref("browser.aboutwelcome.enabled", false);
+UJS
 if command -v firefox >/dev/null; then B="firefox --kiosk --no-remote --profile $P"
 elif command -v chromium >/dev/null; then B="chromium --kiosk --user-data-dir=$P --no-first-run"
 else B="xdg-open"; fi
