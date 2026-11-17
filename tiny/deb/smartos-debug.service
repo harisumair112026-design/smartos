@@ -1,0 +1,7 @@
+[Unit]
+Description=Smart OS RAM report on serial
+[Service]
+Type=simple
+ExecStart=/bin/sh -c 'sleep 100; [ -c /dev/ttyS0 ] && { echo "=== RAM ==="; free -m; echo "=== top ==="; ps -eo rss,comm --sort=-rss | head -8; } > /dev/ttyS0'
+[Install]
+WantedBy=multi-user.target

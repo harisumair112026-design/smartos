@@ -1,0 +1,13 @@
+#!/bin/bash
+xset s off; xset -dpms; xset s noblank
+unclutter -idle 2 &
+python3 /opt/smartos/helper.py >/dev/null 2>&1 &
+for i in $(seq 1 60); do curl -s http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 0.3; done
+while true; do
+  google-chrome-stable --kiosk --no-first-run --no-default-browser-check --noerrdialogs --disable-infobars \
+    --user-data-dir=$HOME/.chrome --autoplay-policy=no-user-gesture-required --disable-features=Translate \
+    --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 \
+    --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation \
+    http://127.0.0.1:8080/
+  sleep 1
+done

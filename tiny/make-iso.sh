@@ -4,7 +4,7 @@ set -euo pipefail
 O="$(pwd)/out"; W=$(mktemp -d)
 mkdir -p $W/i/{bin,sbin,dev,proc,sys,iso,ro,rw,new}
 cp /bin/busybox $W/i/bin/busybox
-(cd $W/i/bin && for a in $(./busybox --list); do ln -sf busybox "$a"; done)
+(cd $W/i/bin && for a in $(./busybox --list); do [ "$a" = busybox ] || ln -sf busybox "$a"; done)
 mknod -m 600 $W/i/dev/console c 5 1; mknod -m 666 $W/i/dev/null c 1 3
 cp tiny/init $W/i/init; chmod 755 $W/i/init
 (cd $W/i && find . | cpio -o -H newc --quiet | gzip -9) > $W/initrd.gz
@@ -14,7 +14,7 @@ cat > $I/boot/grub/grub.cfg <<'G'
 set timeout=1
 set default=0
 menuentry "Smart OS" {
-  linux /boot/vmlinuz quiet loglevel=3 console=ttyS0,115200 console=tty0
+  linux /boot/vmlinuz loglevel=4 console=ttyS0,115200 console=tty0
   initrd /boot/initrd.gz
 }
 menuentry "Smart OS (safe graphics)" {

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Smart OS helper: Smart OS ko localhost par serve karta hai + allowlist wale Linux apps launch karta hai.
 Sirf 127.0.0.1 par sunta hai. Har kaam ke liye secret token chahiye (har boot par naya)."""
-import http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
+import os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
 ROOT = os.environ.get("SMARTOS_ROOT", "/opt/smartos")
 PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
 HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
+  "chrome": ("Google Chrome", ["google-chrome-stable"]),
   "firefox": ("Firefox", ["firefox"]),
+  "xterm": ("Terminal", ["xterm"]),
   "files": ("Files", ["pcmanfm-qt"]),
   "editor": ("Text Editor", ["featherpad"]),
   "terminal": ("Terminal", ["qterminal"]),
@@ -74,7 +76,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         if s.path == "/api/power":
             act = d.get("action")
             if act in ("poweroff", "reboot"):
-                subprocess.run(["sync"]); subprocess.Popen(["systemctl", act]); return s.j({"ok": True})
+                subprocess.run(["sync"]); subprocess.Popen((["sudo","-n","systemctl",act] if shutil.which("sudo") and os.geteuid()!=0 else ["systemctl",act])); return s.j({"ok": True})
             return s.j({"ok": False}, 400)
         if s.path == "/api/wifi/connect":
             ssid = str(d.get("ssid", ""))[:64]; pw = str(d.get("password", ""))[:100]
