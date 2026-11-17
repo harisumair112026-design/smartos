@@ -14,13 +14,12 @@ window.openLinuxApps=function(){
  R.innerHTML='<div class="st">⏳ helper se jud raha hoon...</div>';
  (async()=>{
   let apps;try{apps=await api('/api/apps')}catch(e){R.innerHTML='<div style="color:#fbbf24">⚠ Ye app sirf <b>SmartOS-Lubuntu ISO</b> me chalta hai (jahan helper chalu hota hai). Normal browser me asli Linux apps nahi khul sakte.</div>';return}
-  R.innerHTML='<b>🐧 Asli Linux apps</b><div class="ap" style="margin:8px 0"></div><div style="margin:8px 0"><button class="dk" style="'+btn+';background:#7c3aed">🖥 Asli Desktop dikhao</button> <button class="pw" style="'+btn+';background:#b91c1c">⏻ Band karo</button> <button class="rb" style="'+btn+';background:#92400e">↻ Restart</button></div>'+
+  R.innerHTML='<b>🐧 Asli Linux apps</b><div class="ap" style="margin:8px 0"></div><div style="margin:8px 0"><button class="pw" style="'+btn+';background:#b91c1c">⏻ Band karo</button> <button class="rb" style="'+btn+';background:#92400e">↻ Restart</button></div>'+
   '<b>📶 WiFi</b><div style="margin:8px 0"><button class="sc" style="'+btn+'">Scan</button> <span class="ws" style="opacity:.7"></span></div><div class="wl"></div>'+
   '<div class="msg" style="margin-top:8px;opacity:.8"></div>';
   const q=s=>R.querySelector(s),msg=t=>q('.msg').textContent=t;
   q('.ap').innerHTML=apps.length?apps.map(a=>'<button data-id="'+esc(a.id)+'" style="'+btn+'">'+esc(a.name)+'</button>').join(''):'<span style="opacity:.7">Koi allowlist app install nahi mili</span>';
-  q('.ap').onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{await post('/api/launch',{app:b.dataset.id});msg('✅ '+b.textContent+' khul raha hai (Asli Desktop me dikhega)')}catch(x){msg('❌ '+x.message)}};
-  q('.dk').onclick=()=>post('/api/desktop').catch(x=>msg('❌ '+x.message));
+  q('.ap').onclick=async e=>{const b=e.target.closest('button');if(!b)return;try{await post('/api/launch',{app:b.dataset.id});msg('✅ '+b.textContent+' khul raha hai')}catch(x){msg('❌ '+x.message)}};
   q('.pw').onclick=()=>{if(confirm('Computer band karna hai?'))post('/api/power',{action:'poweroff'}).catch(x=>msg('❌ '+x.message))};
   q('.rb').onclick=()=>{if(confirm('Restart karna hai?'))post('/api/power',{action:'reboot'}).catch(x=>msg('❌ '+x.message))};
   q('.sc').onclick=async()=>{q('.ws').textContent='scan ho raha hai...';try{const L=await api('/api/wifi/scan');q('.ws').textContent=L.length+' network';

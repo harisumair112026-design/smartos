@@ -38,7 +38,8 @@ python3 - <<PY
 p='tree/opt/smartos/index.html'
 s=open(p,encoding='utf-8').read()
 js=open('$HERE/linuxapps.js',encoding='utf-8').read()
-s=s.replace('navigator.storage.persist&&navigator.storage.persist()','0')  # Firefox popup band
+s=s.replace('navigator.storage.persist&&navigator.storage.persist()','0')
+s=s.replace('<head>','<head>'+"<script>try{var g={getCurrentPosition:function(a,b){b&&b({code:1,message:'denied'})},watchPosition:function(a,b){b&&b({code:1,message:'denied'});return 0},clearWatch:function(){}};Object.defineProperty(navigator,'geolocation',{value:g,configurable:true})}catch(e){}</script>",1)  # Firefox popup band
 i=s.rfind('</body>')
 open(p,'w',encoding='utf-8').write(s[:i]+'<script>\n'+js+'</script>\n'+s[i:])
 PY
