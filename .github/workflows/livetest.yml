@@ -41,9 +41,10 @@ jobs:
           VNCPASS=$(openssl rand -hex 4)
           ISO=$(ls iso/*.iso | head -1)
           sudo chmod 666 /dev/kvm 2>/dev/null || true
+          qemu-img create -f qcow2 disk.qcow2 24G
           ACCEL="-accel kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-accel tcg"
           qemu-system-x86_64 $ACCEL -bios /usr/share/ovmf/OVMF.fd -m ${{ inputs.ram }} -smp 2 -vga std \
-            -cdrom "$ISO" -boot d -usb -device usb-tablet \
+            -drive file=disk.qcow2,if=virtio,format=qcow2 -cdrom "$ISO" -boot order=cd -usb -device usb-tablet \
             -netdev user,id=n0 -device e1000,netdev=n0 \
             -object secret,id=sec0,data="$VNCPASS" -vnc 127.0.0.1:0,password-secret=sec0 &
           sleep 3
