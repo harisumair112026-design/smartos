@@ -18,6 +18,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - name: Tools
         run: |
           sudo apt-get update -qq
@@ -49,6 +50,7 @@ jobs:
           websockify --web /usr/share/novnc 6080 127.0.0.1:5900 >/dev/null 2>&1 &
           ./cloudflared tunnel --no-autoupdate --url http://127.0.0.1:6080 > cf.log 2>&1 &
           for i in $(seq 1 60); do U=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' cf.log | head -1); [ -n "$U" ] && break; sleep 2; done
-          echo "LIVE_URL=$U/vnc.html?autoconnect=1&resize=scale"
-          echo "LIVE_PASS=$VNCPASS"
+          printf '%s\n%s\n' "$U/vnc.html?autoconnect=1&resize=scale" "$VNCPASS" | openssl pkeyutl -encrypt -pubin -inkey live_pub.pem -pkeyopt rsa_padding_mode:oaep -out live.enc
+          gh release view livetest -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create livetest -R "$GITHUB_REPOSITORY" -t "live emulator" -n auto
+          gh release upload livetest -R "$GITHUB_REPOSITORY" live.enc --clobber
           sleep $(( ${{ inputs.minutes }} * 60 ))
