@@ -15,9 +15,11 @@ mount -t proc proc $R/proc; mount --rbind /dev $R/dev; mount --rbind /sys $R/sys
 export DEBIAN_FRONTEND=noninteractive
 chroot $R apt-get update -qq
 for p in firmware-iwlwifi firmware-realtek firmware-atheros firmware-brcm80211 firmware-misc-nonfree firmware-amd-graphics firmware-mediatek; do chroot $R apt-get install -y -qq --no-install-recommends $p >/dev/null 2>&1 || echo "skip $p"; done
+for p in fonts-noto-color-emoji fonts-noto-core; do chroot $R apt-get install -y -qq --no-install-recommends $p >/dev/null 2>&1 || echo "skip $p"; done
 curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb -o $R/tmp/chrome.deb
 chroot $R apt-get install -y -qq --no-install-recommends /tmp/chrome.deb >/dev/null
 rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
+chroot $R fc-cache -f >/dev/null 2>&1 || true
 # apna kernel ke modules
 cp -a out/modroot/lib/modules $R/lib/
 ls $R/lib/modules
