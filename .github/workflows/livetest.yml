@@ -1,0 +1,55 @@
+name: live-emulator
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "ISO release tag"
+        default: "iso-6"
+      ram:
+        description: "RAM MB"
+        default: "2048"
+      minutes:
+        description: "Kitni der chalana hai (minute)"
+        default: "60"
+jobs:
+  live:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 130
+    permissions:
+      contents: write
+    steps:
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 ovmf novnc websockify
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
+          curl -fsSL https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared; chmod +x cloudflared
+      - name: ISO
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir iso && cd iso
+          gh release download "${{ inputs.tag }}" -R "$GITHUB_REPOSITORY" -p '*.iso*' -p '*.sha256'
+          if ls *.part00 >/dev/null 2>&1; then cat SmartOS-Lubuntu.iso.part* > SmartOS-Lubuntu.iso; rm SmartOS-Lubuntu.iso.part*; fi
+          ls -l
+      - name: Start VM and tunnel
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VNCPASS: ${{ secrets.VNCPASS }}
+        run: |
+          ISO=$(ls iso/*.iso | head -1)
+          sudo chmod 666 /dev/kvm 2>/dev/null || true
+          ACCEL="-accel kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-accel tcg"
+          qemu-system-x86_64 $ACCEL -bios /usr/share/ovmf/OVMF.fd -m ${{ inputs.ram }} -smp 2 -vga std \
+            -cdrom "$ISO" -boot d -usb -device usb-tablet \
+            -netdev user,id=n0 -device e1000,netdev=n0 \
+            -object secret,id=sec0,data="$VNCPASS" -vnc 127.0.0.1:0,password-secret=sec0 &
+          sleep 3
+          websockify --web /usr/share/novnc 6080 127.0.0.1:5900 >/dev/null 2>&1 &
+          ./cloudflared tunnel --no-autoupdate --url http://127.0.0.1:6080 > cf.log 2>&1 &
+          for i in $(seq 1 60); do U=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' cf.log | head -1); [ -n "$U" ] && break; sleep 2; done
+          echo "$U/vnc.html?autoconnect=1&resize=scale" > live-url.txt; cat live-url.txt
+          gh release view livetest -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 || gh release create livetest -R "$GITHUB_REPOSITORY" -t "live emulator" -n auto
+          gh release upload livetest -R "$GITHUB_REPOSITORY" live-url.txt --clobber
+          sleep $(( ${{ inputs.minutes }} * 60 ))
