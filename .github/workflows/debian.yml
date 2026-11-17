@@ -53,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           T=deb-${{ github.run_number }}
-          gh release create $T -t "Smart OS Debian $T" -n "Debian + own kernel" out/SmartOS-Tiny.iso out/SmartOS-Tiny.iso.sha256 out/kernel.config
+          gh release create $T -t "Smart OS Debian $T" -n "Debian + own kernel" out/SmartOS-Tiny.iso out/SmartOS-Tiny.iso.sha256
       - name: Boot test 1GB
         run: |
           mkdir shots
