@@ -40,6 +40,9 @@ s=open(p,encoding='utf-8').read()
 js=open('$HERE/linuxapps.js',encoding='utf-8').read()
 s=s.replace('navigator.storage.persist&&navigator.storage.persist()','0')
 s=s.replace('<head>','<head>'+"<script>try{var g={getCurrentPosition:function(a,b){b&&b({code:1,message:'denied'})},watchPosition:function(a,b){b&&b({code:1,message:'denied'});return 0},clearWatch:function(){}};Object.defineProperty(navigator,'geolocation',{value:g,configurable:true})}catch(e){}</script>",1)  # Firefox popup band
+s=s.replace('onclick="maximizeWindow(this)">☐','onclick="maximizeWindow(this)"><svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="1.5" width="8" height="8" rx="1"/></svg>',1)
+s=s.replace('onclick="closeWindow(this)">✕','onclick="closeWindow(this)"><svg width="11" height="11" viewBox="0 0 11 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 1.5L9.5 9.5M9.5 1.5L1.5 9.5"/></svg>',1)
+s=s.replace('✕','×').replace('✖','×')
 i=s.rfind('</body>')
 open(p,'w',encoding='utf-8').write(s[:i]+'<script>\n'+js+'</script>\n'+s[i:])
 PY
