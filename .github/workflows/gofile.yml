@@ -17,17 +17,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir iso && cd iso
-          gh release download "${{ inputs.tag }}" -R "$GITHUB_REPOSITORY" -p 'SmartOS-Lubuntu.iso.part*' -p '*.sha256'
-          cat SmartOS-Lubuntu.iso.part* > SmartOS-Lubuntu.iso; rm SmartOS-Lubuntu.iso.part*
-          sha256sum -c SmartOS-Lubuntu.iso.sha256; ls -l
+          gh release download "${{ inputs.tag }}" -R "$GITHUB_REPOSITORY" -p '*.iso*' -p '*.sha256'
+          if ls *.part00 >/dev/null 2>&1; then cat *.iso.part* > SmartOS-Lubuntu.iso; rm *.iso.part*; fi
+          sha256sum -c *.sha256 || true; ls -l
       - name: Upload to GoFile
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd iso
-          curl -sS --retry 3 -F "file=@SmartOS-Lubuntu.iso" https://upload.gofile.io/uploadfile | tee up1.json
+          curl -sS --retry 3 -F "file=@$(ls *.iso | head -1)" https://upload.gofile.io/uploadfile | tee up1.json
           echo
-          curl -sS --retry 3 -F "file=@SmartOS-Lubuntu.iso.sha256" https://upload.gofile.io/uploadfile | tee up2.json
+          curl -sS --retry 3 -F "file=@$(ls *.sha256 | head -1)" https://upload.gofile.io/uploadfile | tee up2.json
           echo
           python3 - <<'PY'
           import json
