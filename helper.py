@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smart OS helper: Smart OS ko localhost par serve karta hai + allowlist wale Linux apps launch karta hai.
 Sirf 127.0.0.1 par sunta hai. Har kaam ke liye secret token chahiye (har boot par naya)."""
-import re, os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
+import pty, fcntl, termios, struct, select, threading, base64, signal, re, os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
 ROOT = os.environ.get("SMARTOS_ROOT", "/opt/smartos")
 PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
@@ -26,6 +26,48 @@ def nm(*a):
         return subprocess.run(["nmcli", *a], capture_output=True, text=True, timeout=40)
     except Exception as e:
         return subprocess.CompletedProcess(a, 1, "", "nmcli nahi mila: %s" % e)
+TERMS = {}
+class Term:
+    def __init__(s, rows, cols):
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.environ.update(TERM="xterm-256color", LANG="C.UTF-8")
+            h = os.path.expanduser("~")
+            try: os.chdir(h if os.path.isdir(h) else "/")
+            except Exception: pass
+            os.execvp("bash", ["bash", "-l"])
+        s.pid, s.fd, s.buf, s.alive = pid, fd, bytearray(), True
+        s.cv = threading.Condition(); s.resize(rows, cols)
+        threading.Thread(target=s.pump, daemon=True).start()
+    def pump(s):
+        while True:
+            try:
+                r, _, _ = select.select([s.fd], [], [], 1)
+                if r:
+                    d = os.read(s.fd, 4096)
+                    if not d: break
+                    with s.cv: s.buf += d; s.cv.notify_all()
+            except OSError: break
+        s.alive = False
+        with s.cv: s.cv.notify_all()
+    def read(s, wait=20):
+        with s.cv:
+            if not s.buf and s.alive: s.cv.wait(wait)
+            d = bytes(s.buf); s.buf.clear()
+        return d, s.alive
+    def write(s, b):
+        try: os.write(s.fd, b)
+        except OSError: pass
+    def resize(s, rows, cols):
+        try: fcntl.ioctl(s.fd, termios.TIOCSWINSZ, struct.pack("HHHH", max(2, min(rows, 500)), max(2, min(cols, 500)), 0, 0))
+        except Exception: pass
+    def close(s):
+        try: os.kill(s.pid, signal.SIGHUP)
+        except Exception: pass
+        try: os.close(s.fd)
+        except Exception: pass
+        try: os.waitpid(s.pid, os.WNOHANG)
+        except Exception: pass
 def live_disk():
     try:
         src = subprocess.run(["findmnt", "-no", "SOURCE", "/mnt/iso"], capture_output=True, text=True).stdout.strip()
@@ -73,6 +115,12 @@ class H(http.server.SimpleHTTPRequestHandler):
             if not s.authed(): return s.send_error(403)
             if u.path == "/api/apps": return s.j(installed())
             if u.path == "/api/install/disks": return s.j(disks())
+            if u.path == "/api/term/read":
+                t = TERMS.get(urllib.parse.parse_qs(u.query).get("id", [""])[0])
+                if not t: return s.j({"data": "", "alive": False})
+                d, al = t.read(20)
+                if not al and not d: TERMS.pop(next((k for k, v in TERMS.items() if v is t), None), None); t.close()
+                return s.j({"data": base64.b64encode(d).decode(), "alive": al or bool(d)})
             if u.path == "/api/install/status":
                 try: pc, msg = open("/run/smartos-install.progress").read().strip().split("|", 1)
                 except Exception: pc, msg = "0", ""
@@ -100,6 +148,20 @@ class H(http.server.SimpleHTTPRequestHandler):
             try: os.remove("/run/smartos-install.progress")
             except Exception: pass
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            return s.j({"ok": True})
+        if s.path == "/api/term/open":
+            for k in [k for k, v in TERMS.items() if not v.alive]: TERMS.pop(k).close()
+            if len(TERMS) >= 4: return s.j({"ok": False, "msg": "bahut terminal khule hain"}, 400)
+            tid = secrets.token_hex(8); TERMS[tid] = Term(int(d.get("rows", 24)), int(d.get("cols", 80)))
+            return s.j({"ok": True, "id": tid})
+        if s.path in ("/api/term/write", "/api/term/resize", "/api/term/close"):
+            t = TERMS.get(str(d.get("id", "")))
+            if not t: return s.j({"ok": False}, 404)
+            if s.path.endswith("write"):
+                try: t.write(base64.b64decode(str(d.get("data", ""))))
+                except Exception: return s.j({"ok": False}, 400)
+            elif s.path.endswith("resize"): t.resize(int(d.get("rows", 24)), int(d.get("cols", 80)))
+            else: TERMS.pop(str(d.get("id")), None); t.close()
             return s.j({"ok": True})
         if s.path == "/api/desktop":   # kiosk browser band => asli Lubuntu desktop dikhega
             subprocess.run(["pkill", "-f", "smartos-kiosk"]); return s.j({"ok": True})

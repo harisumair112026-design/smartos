@@ -28,7 +28,39 @@ window.openLinuxApps=function(){
     try{const r=await post('/api/wifi/connect',{ssid:n.ssid,password:pw});msg(r.ok?'✅ Jud gaya: '+n.ssid:'❌ '+(r.msg||'nahi juda'))}catch(x){msg('❌ '+x.message)}}}catch(x){q('.ws').textContent='❌ '+x.message}};
  })();
  return w};
+
+window.openTerminal=function(){
+ const w=createWindow('Terminal','💻','<div class="trm" style="height:100%;width:100%;background:#0b1020;box-sizing:border-box;padding:6px;overflow:hidden"></div>',780,480);
+ const R=w.querySelector('.trm');let id=null,alive=true,term=null,fit=null,fb=null;
+ const b64=t=>btoa(unescape(encodeURIComponent(t)));
+ let q=Promise.resolve();const send=d=>{q=q.then(()=>id&&post('/api/term/write',{id,data:b64(d)})).catch(()=>{})};
+ const dims=()=>term?{rows:term.rows,cols:term.cols}:{rows:24,cols:90};
+ (async()=>{
+  try{await api('/api/apps')}catch(e){R.innerHTML='<div style="color:#fbbf24;font:13px system-ui;padding:10px">⚠ Terminal sirf Smart OS ISO me chalta hai (jahan helper chalu hota hai).</div>';return}
+  if(window.Terminal){
+   term=new Terminal({fontFamily:'DejaVu Sans Mono, monospace',fontSize:14,cursorBlink:true,theme:{background:'#0b1020',foreground:'#e2e8f5',cursor:'#22d3ee'}});
+   if(window.FitAddon){fit=new FitAddon.FitAddon();term.loadAddon(fit)}
+   term.open(R);if(fit)try{fit.fit()}catch(e){}
+   term.onData(send);term.focus();R.addEventListener('click',()=>term.focus());
+  }else{
+   R.innerHTML='<pre class="o" style="margin:0;height:calc(100% - 34px);overflow:auto;color:#e2e8f5;font:13px DejaVu Sans Mono,monospace;white-space:pre-wrap"></pre><input class="i" autocomplete="off" spellcheck="false" style="width:100%;box-sizing:border-box;background:#121a33;color:#e2e8f5;border:1px solid #2b3a63;border-radius:6px;padding:7px;font:13px DejaVu Sans Mono,monospace" placeholder="command likho, Enter dabao">';
+   fb=R.querySelector('.o');const inp=R.querySelector('.i');
+   inp.onkeydown=e=>{if(e.key==='Enter'){send(inp.value+'\n');inp.value=''}else if(e.key==='c'&&e.ctrlKey){send('\x03')}};inp.focus();
+  }
+  const r=await post('/api/term/open',dims());if(!r.ok){(term?term.write('\r\n'+(r.msg||'error')):fb.textContent=r.msg);return}
+  id=r.id;
+  if(term){const ro=new ResizeObserver(()=>{try{fit&&fit.fit();post('/api/term/resize',Object.assign({id},dims()))}catch(e){}});ro.observe(R)}
+  const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);alive=false;id&&post('/api/term/close',{id}).catch(()=>{})}},3000);
+  while(alive){
+   try{const j=await api('/api/term/read?id='+id);
+    if(j.data){const bin=atob(j.data),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+     if(term)term.write(u);else{fb.textContent+=new TextDecoder().decode(u).replace(/\x1b\][^\x07]*\x07/g,'').replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g,'').replace(/\r(?!\n)/g,'');fb.scrollTop=fb.scrollHeight}}
+    if(!j.alive){if(term)term.write('\r\n[terminal band ho gaya]\r\n');else fb.textContent+='\n[terminal band ho gaya]\n';break}
+   }catch(e){await new Promise(r=>setTimeout(r,1500))}
+  }
+ })();
+ return w};
 const ci=document.querySelector('.ctx-item[onclick*="openClaudeTools"]')||document.querySelector('.ctx-item[onclick*="openAudioEditor"]');
-if(ci)ci.insertAdjacentHTML('afterend','<div class="ctx-item" onclick="openLinuxApps()"><span>🐧</span> Linux Apps</div>');
-setTimeout(function(){if(!window.smApps)return;if(!window.smApps.some(function(x){return x[0]==='Linux Apps'}))window.smApps.push(['Linux Apps','🐧','#f59e0b','#b45309','System','openLinuxApps']);window.smRender&&smRender()},7400);
+if(ci)ci.insertAdjacentHTML('afterend','<div class="ctx-item" onclick="openLinuxApps()"><span>🐧</span> Linux Apps</div><div class="ctx-item" onclick="openTerminal()"><span>💻</span> Terminal</div>');
+setTimeout(function(){if(!window.smApps)return;if(!window.smApps.some(function(x){return x[0]==='Linux Apps'}))window.smApps.push(['Linux Apps','🐧','#f59e0b','#b45309','System','openLinuxApps']);if(!window.smApps.some(function(x){return x[0]==='Terminal'}))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);window.smRender&&smRender()},7400);
 }catch(e){console.error('Linux Apps',e)}})();

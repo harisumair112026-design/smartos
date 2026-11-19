@@ -45,7 +45,17 @@ jobs:
           s=s.replace('onclick="closeWindow(this)">✕','onclick="closeWindow(this)"><svg width="11" height="11" viewBox="0 0 11 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 1.5L9.5 9.5M9.5 1.5L1.5 9.5"/></svg>',1)
           s=s.replace('✕','×').replace('✖','×')
           i=s.rfind('</body>')
-          open('out/index.html','w',encoding='utf-8').write(s[:i]+'<script>\n'+js+'</script>\n'+s[i:])
+          import urllib.request
+          lib=''
+          try:
+              B='https://cdnjs.cloudflare.com/ajax/libs/'
+              g=lambda u: urllib.request.urlopen(B+u,timeout=60).read().decode('utf-8')
+              css=g('xterm/5.3.0/xterm.min.css'); x=g('xterm/5.3.0/xterm.min.js'); f=g('xterm-addon-fit/0.8.0/xterm-addon-fit.min.js')
+              lib='<style>'+css+'</style><script>'+x.replace('</script','<\\/script')+'</script><script>'+f.replace('</script','<\\/script')+'</script>\n'
+              print('xterm ok',len(lib))
+          except Exception as e:
+              print('xterm download fail (fallback terminal)',e)
+          open('out/index.html','w',encoding='utf-8').write(s[:i]+lib+'<script>\n'+js+'</script>\n'+s[i:])
           PY
       - name: Rootfs (Debian)
         run: sudo bash tiny/deb-rootfs.sh
