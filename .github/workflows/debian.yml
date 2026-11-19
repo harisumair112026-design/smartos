@@ -36,6 +36,8 @@ jobs:
           ls -lh ../out/vmlinuz; du -sh ../out/modroot; cd ..; rm -rf old
       - name: Smart OS page
         run: |
+          mkdir -p xt/x xt/f; (cd xt/x && npm pack xterm@5.3.0 >/dev/null 2>&1 && tar xzf xterm-*.tgz) || echo npm-xterm-fail
+          (cd xt/f && npm pack xterm-addon-fit@0.8.0 >/dev/null 2>&1 && tar xzf xterm-addon-fit-*.tgz) || echo npm-fit-fail
           python3 - <<'PY'
           s=open('Smart_OS_V_1_110.html',encoding='utf-8').read()
           js=open('linuxapps.js',encoding='utf-8').read()
@@ -45,16 +47,15 @@ jobs:
           s=s.replace('onclick="closeWindow(this)">✕','onclick="closeWindow(this)"><svg width="11" height="11" viewBox="0 0 11 11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M1.5 1.5L9.5 9.5M9.5 1.5L1.5 9.5"/></svg>',1)
           s=s.replace('✕','×').replace('✖','×')
           i=s.rfind('</body>')
-          import urllib.request
+          import os
           lib=''
           try:
-              B='https://cdnjs.cloudflare.com/ajax/libs/'
-              g=lambda u: urllib.request.urlopen(B+u,timeout=60).read().decode('utf-8')
-              css=g('xterm/5.3.0/xterm.min.css'); x=g('xterm/5.3.0/xterm.min.js'); f=g('xterm-addon-fit/0.8.0/xterm-addon-fit.min.js')
+              r=lambda f: open(f,encoding='utf-8').read()
+              css=r('xt/x/package/css/xterm.css'); x=r('xt/x/package/lib/xterm.js'); f=r('xt/f/package/lib/xterm-addon-fit.js')
               lib='<style>'+css+'</style><script>'+x.replace('</script','<\\/script')+'</script><script>'+f.replace('</script','<\\/script')+'</script>\n'
               print('xterm ok',len(lib))
           except Exception as e:
-              print('xterm download fail (fallback terminal)',e)
+              print('xterm fail (fallback terminal)',e)
           open('out/index.html','w',encoding='utf-8').write(s[:i]+lib+'<script>\n'+js+'</script>\n'+s[i:])
           PY
       - name: Rootfs (Debian)
