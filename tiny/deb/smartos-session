@@ -6,7 +6,7 @@ unclutter -idle 4 &
 CMD=$(cat /proc/cmdline)
 AI=$(echo "$CMD" | grep -o 'smartos.autoinstall=[^ ]*' | cut -d= -f2)
 if [ -n "$AI" ]; then   # CI test: bina poochhe install, phir band
-  sudo -n /usr/local/bin/smartos-install "$AI"; { echo "=== INSTALL RESULT"; cat /run/smartos-install.progress; tail -60 /run/smartos-install.log; } > /dev/ttyS0 2>/dev/null; sleep 2; sudo -n systemctl poweroff; exit 0
+  sudo -n /usr/local/bin/smartos-install "$AI"; { echo "=== INSTALL RESULT"; cat /run/smartos-install.progress; tail -80 /run/smartos-install.log; } | sudo -n tee /dev/ttyS0 >/dev/null 2>&1; sleep 2; sudo -n systemctl poweroff; exit 0
 fi
 URL=http://127.0.0.1:8080/
 echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && URL=http://127.0.0.1:8080/install.html
