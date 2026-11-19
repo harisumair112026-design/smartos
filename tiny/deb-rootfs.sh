@@ -22,7 +22,7 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs" "plymouth"; do
+for p in "grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
@@ -43,15 +43,34 @@ mkdir -p $R/etc/systemd/system/getty@tty1.service.d $R/etc/xdg/openbox
 cp tiny/deb/autologin.conf $R/etc/systemd/system/getty@tty1.service.d/autologin.conf
 cp tiny/deb/smartos-debug.service $R/etc/systemd/system/
 echo '/usr/local/bin/smartos-session &' > $R/etc/xdg/openbox/autostart
-printf 'smart ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/local/bin/smartos-install\n' > $R/etc/sudoers.d/smart; chmod 440 $R/etc/sudoers.d/smart
+printf 'smart ALL=(ALL) NOPASSWD: ALL\n' > $R/etc/sudoers.d/smart; chmod 440 $R/etc/sudoers.d/smart
 mkdir -p $R/etc/NetworkManager/conf.d; printf '[main]\nauth-polkit=false\n' > $R/etc/NetworkManager/conf.d/smartos.conf
+python3 - "$R" <<'PY'
+import re,sys,os
+p=sys.argv[1]+"/etc/xdg/openbox/rc.xml"
+if os.path.exists(p):
+    s=open(p).read()
+    s=re.sub(r"<applications>.*?</applications>","",s,flags=re.S)
+    s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus><decor>yes</decor></application></applications>\n</openbox_config>")
+    open(p,"w").write(s)
+PY
+mkdir -p $R/home/smart
+cat > $R/home/smart/.Xresources <<'XR'
+XTerm*background: #0b1020
+XTerm*foreground: #e2e8f5
+XTerm*cursorColor: #22d3ee
+XTerm*faceName: DejaVu Sans Mono
+XTerm*scrollBar: false
+XTerm*saveLines: 5000
+XTerm*selectToClipboard: true
+XR
 echo smartos > $R/etc/hostname; : > $R/etc/fstab
 printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\n' > $R/etc/os-release
 chroot $R /bin/bash -c '
 useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >/dev/null; passwd -d smart >/dev/null
-echo "exec openbox-session" > /home/smart/.xinitrc
+echo "xrdb -merge ~/.Xresources; exec openbox-session" > /home/smart/.xinitrc
 echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && exec startx" > /home/smart/.bash_profile
-chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile
+chown smart:smart /home/smart; chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile /home/smart/.Xresources
 systemctl enable NetworkManager smartos-debug.service
 systemctl mask apt-daily.timer apt-daily-upgrade.timer systemd-networkd-wait-online.service NetworkManager-wait-online.service
 systemctl set-default multi-user.target

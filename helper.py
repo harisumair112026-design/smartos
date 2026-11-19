@@ -9,7 +9,7 @@ HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
   "chrome": ("Google Chrome", ["google-chrome-stable"]),
   "firefox": ("Firefox", ["firefox"]),
-  "xterm": ("Terminal", ["xterm"]),
+  "xterm": ("Terminal (Debian)", ["xterm", "-fa", "DejaVu Sans Mono", "-fs", "13", "-geometry", "110x32"]),
   "files": ("Files", ["pcmanfm-qt"]),
   "editor": ("Text Editor", ["featherpad"]),
   "terminal": ("Terminal", ["qterminal"]),
