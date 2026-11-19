@@ -1,6 +1,8 @@
 #!/bin/bash
 xset s off; xset -dpms; xset s noblank
-unclutter -idle 2 &
+export XCURSOR_THEME=DMZ-White XCURSOR_SIZE=24
+xsetroot -cursor_name left_ptr 2>/dev/null
+unclutter -idle 4 &
 python3 /opt/smartos/helper.py >/dev/null 2>&1 &
 for i in $(seq 1 60); do curl -s http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 0.3; done
 while true; do
