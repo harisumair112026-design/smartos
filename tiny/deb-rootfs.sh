@@ -23,7 +23,7 @@ chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
 for p in "grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
-  chroot $R apt-get install -y --no-install-recommends $p 2>&1 | tail -15 || true
+  chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
 chroot $R dpkg -l | grep -E "^ii +(plymouth|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 

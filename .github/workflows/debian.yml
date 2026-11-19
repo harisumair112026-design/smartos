@@ -107,6 +107,6 @@ jobs:
         run: |
           gh release view tinytest >/dev/null 2>&1 || gh release create tinytest -t "tiny test shots" -n auto
           for f in shots/*.png; do cp "$f" "d${{ github.run_number }}-$(basename $f)"; done
-          cp serial.log "d${{ github.run_number }}-serial.txt" 2>/dev/null || true
-          for f in shots/*serial.log; do [ -f "$f" ] && cp "$f" "d${{ github.run_number }}-$(basename $f).txt"; done
+          [ -s serial.log ] && cp serial.log "d${{ github.run_number }}-serial.txt" || true
+          for f in shots/*serial.log; do [ -s "$f" ] && cp "$f" "d${{ github.run_number }}-$(basename $f).txt"; done
           gh release upload tinytest d${{ github.run_number }}-* --clobber
