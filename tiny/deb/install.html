@@ -1,0 +1,42 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><title>Smart OS Install</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,#0b1020,#1a2347);color:#e2e8f5;font:16px/1.5 system-ui,sans-serif}
+.card{width:min(560px,92vw);background:#121a33cc;border:1px solid #2b3a6b;border-radius:18px;padding:28px;box-shadow:0 20px 60px #0008}
+img{width:72px;height:72px;display:block;margin:0 auto 8px}h1{text-align:center;margin:0 0 4px;font-size:26px}p.s{text-align:center;color:#9fb0d6;margin:0 0 18px}
+.d{display:flex;gap:12px;align-items:center;padding:12px 14px;margin:8px 0;border:1px solid #2b3a6b;border-radius:12px;cursor:pointer}.d:hover{background:#1b2650}.d.sel{border-color:#5aa9ff;background:#1b2f5e}
+.d b{display:block}.d span{color:#9fb0d6;font-size:14px}
+button{width:100%;margin-top:14px;padding:13px;border:0;border-radius:12px;background:#3b82f6;color:#fff;font-size:17px;font-weight:600;cursor:pointer}button:disabled{background:#33406b;color:#8a98c0;cursor:not-allowed}button.red{background:#dc2626}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid #2b3a6b;background:#0b1226;color:#fff;font-size:16px;margin-top:8px}
+.warn{background:#3b1d1d;border:1px solid #7f2d2d;color:#fecaca;padding:12px;border-radius:10px;margin:12px 0;font-size:15px}
+.bar{height:16px;border-radius:9px;background:#0b1226;overflow:hidden;margin:18px 0 8px}.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3b82f6,#22d3ee);transition:width .6s}
+.m{text-align:center;color:#9fb0d6}.hide{display:none}
+</style></head><body><div class="card">
+<img src="logo.png" alt=""><h1>Smart OS Install</h1><p class="s">Apne computer par Smart OS install karo</p>
+<div id="s1"><div id="list" class="m">Disks dhoondh raha hoon...</div>
+<div class="warn">⚠ Chuni hui disk <b>poori erase</b> ho jayegi. Uska saara data hamesha ke liye chala jayega.</div>
+<button id="n1" disabled>Aage badho</button></div>
+<div id="s2" class="hide"><p>Confirm karne ke liye neeche <b>ERASE</b> likho:</p><input id="cf" autocomplete="off" placeholder="ERASE">
+<button id="go" class="red" disabled>Install shuru karo</button><button id="bk" style="background:#33406b">Wapas</button></div>
+<div id="s3" class="hide"><div class="bar"><i id="pb"></i></div><div class="m" id="pm">Shuru ho raha hai...</div><div class="m" id="pp">0%</div></div>
+<div id="s4" class="hide"><h2 style="text-align:center">✔ Install ho gaya!</h2><p class="m">USB/DVD nikal do, phir restart karo. Smart OS ab disk se boot hoga.</p><button id="rb">Restart</button></div>
+<div id="s5" class="hide"><div class="warn" id="er"></div><button onclick="location.reload()">Dobara try karo</button></div>
+</div><script>
+let T="",sel="";const $=i=>document.getElementById(i);
+const api=(p,o={})=>fetch(p,{...o,headers:{"X-Token":T,"Content-Type":"application/json"}}).then(r=>r.json());
+const gb=b=>(b/1e9).toFixed(1)+" GB";
+function show(n){for(let i=1;i<=5;i++)$("s"+i).classList.toggle("hide",i!=n)}
+(async()=>{T=(await (await fetch("/api/token")).json()).token;const L=await api("/api/install/disks");
+ if(!L.length){$("list").textContent="Koi disk nahi mili (4GB+ chahiye).";return}
+ $("list").innerHTML="";L.forEach(d=>{const e=document.createElement("div");e.className="d";e.innerHTML="<div>💽</div><div><b>"+d.model+"</b><span>"+d.dev+" · "+gb(d.size)+"</span></div>";
+  e.onclick=()=>{document.querySelectorAll(".d").forEach(x=>x.classList.remove("sel"));e.classList.add("sel");sel=d.dev;$("n1").disabled=false};$("list").appendChild(e)})})();
+$("n1").onclick=()=>show(2);$("bk").onclick=()=>show(1);
+$("cf").oninput=e=>$("go").disabled=e.target.value!=="ERASE";
+$("go").onclick=async()=>{const r=await api("/api/install/start",{method:"POST",body:JSON.stringify({disk:sel,confirm:"ERASE"})});
+ if(!r.ok){$("er").textContent=r.msg||"Error";show(5);return}show(3);
+ const iv=setInterval(async()=>{const s=await api("/api/install/status");
+  if(s.pct<0){clearInterval(iv);$("er").textContent="Install fail: "+s.msg;show(5);return}
+  $("pb").style.width=s.pct+"%";$("pp").textContent=s.pct+"%";$("pm").textContent=s.msg;
+  if(s.pct>=100){clearInterval(iv);show(4)}},1500)};
+$("rb").onclick=()=>api("/api/power",{method:"POST",body:JSON.stringify({action:"reboot"})});
+</script></body></html>

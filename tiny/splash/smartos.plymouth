@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Smart OS
+Description=Smart OS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/smartos
+ScriptFile=/usr/share/plymouth/themes/smartos/smartos.script

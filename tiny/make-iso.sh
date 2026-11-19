@@ -10,11 +10,25 @@ cp tiny/init $W/i/init; chmod 755 $W/i/init
 (cd $W/i && find . | cpio -o -H newc --quiet | gzip -9) > $W/initrd.gz
 I=$W/iso; mkdir -p $I/boot/grub
 cp $O/vmlinuz $I/boot/vmlinuz; cp $W/initrd.gz $I/boot/initrd.gz; cp $O/smartos.sfs $I/smartos.sfs
+cp tiny/splash/bg.png $I/boot/grub/bg.png
 cat > $I/boot/grub/grub.cfg <<'G'
-set timeout=1
+set timeout=3
 set default=0
+insmod all_video
+insmod gfxterm
+insmod png
+set gfxmode=1024x768,auto
+set gfxpayload=keep
+terminal_output gfxterm
+background_image /boot/grub/bg.png
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-cyan
 menuentry "Smart OS" {
-  linux /boot/vmlinuz loglevel=4 console=ttyS0,115200 console=tty0
+  linux /boot/vmlinuz quiet splash loglevel=3 console=ttyS0,115200 vt.global_cursor_default=0
+  initrd /boot/initrd.gz
+}
+menuentry "Smart OS Install (disk par install karo)" {
+  linux /boot/vmlinuz quiet splash loglevel=3 smartos.install console=ttyS0,115200 vt.global_cursor_default=0
   initrd /boot/initrd.gz
 }
 menuentry "Smart OS (safe graphics)" {

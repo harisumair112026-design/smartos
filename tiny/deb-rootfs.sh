@@ -20,18 +20,26 @@ curl -fsSL https://dl.google.com/linux/direct/google-chrome-stable_current_amd64
 chroot $R apt-get install -y -qq --no-install-recommends /tmp/chrome.deb >/dev/null
 rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
+# installer + boot splash tools
+mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
+chroot $R apt-get install -y -qq --no-install-recommends plymouth grub-common grub-pc-bin grub-efi-amd64-bin dosfstools fdisk e2fsprogs >/dev/null
+rm -f $R/boot/initrd.img-* $R/boot/vmlinuz-* 2>/dev/null || true
+mkdir -p $R/usr/share/plymouth/themes/smartos $R/etc/plymouth
+cp tiny/splash/smartos.plymouth tiny/splash/smartos.script tiny/splash/logo.png $R/usr/share/plymouth/themes/smartos/
+printf '[Daemon]\nTheme=smartos\nShowDelay=0\n' > $R/etc/plymouth/plymouthd.conf
 # apna kernel ke modules
 cp -a out/modroot/lib/modules $R/lib/
 ls $R/lib/modules
 # Smart OS files
 mkdir -p $R/opt/smartos $R/usr/local/bin
 cp out/index.html $R/opt/smartos/index.html; cp helper.py $R/opt/smartos/helper.py
-cp tiny/deb/smartos-session $R/usr/local/bin/smartos-session; chmod 755 $R/usr/local/bin/smartos-session
+cp tiny/deb/smartos-session tiny/deb/smartos-install $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-session $R/usr/local/bin/smartos-install
+cp tiny/deb/install.html $R/opt/smartos/install.html; cp branding/logo.png $R/opt/smartos/logo.png
 mkdir -p $R/etc/systemd/system/getty@tty1.service.d $R/etc/xdg/openbox
 cp tiny/deb/autologin.conf $R/etc/systemd/system/getty@tty1.service.d/autologin.conf
 cp tiny/deb/smartos-debug.service $R/etc/systemd/system/
 echo '/usr/local/bin/smartos-session &' > $R/etc/xdg/openbox/autostart
-printf 'smart ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl\n' > $R/etc/sudoers.d/smart; chmod 440 $R/etc/sudoers.d/smart
+printf 'smart ALL=(ALL) NOPASSWD: /usr/bin/systemctl, /bin/systemctl, /usr/local/bin/smartos-install\n' > $R/etc/sudoers.d/smart; chmod 440 $R/etc/sudoers.d/smart
 mkdir -p $R/etc/NetworkManager/conf.d; printf '[main]\nauth-polkit=false\n' > $R/etc/NetworkManager/conf.d/smartos.conf
 echo smartos > $R/etc/hostname; : > $R/etc/fstab
 printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\n' > $R/etc/os-release

@@ -1,0 +1,17 @@
+Window.SetBackgroundTopColor(0.031, 0.043, 0.086);
+Window.SetBackgroundBottomColor(0.07, 0.10, 0.20);
+W = Window.GetWidth(); H = Window.GetHeight();
+logo = Image("logo.png");
+ls = Sprite(logo);
+ls.SetX(W/2 - logo.GetWidth()/2);
+ls.SetY(H/2 - logo.GetHeight()/2 - 30);
+title = Image.Text("Smart OS", 0.89, 0.91, 0.96, 1, "Sans Bold 22");
+ts = Sprite(title);
+ts.SetX(W/2 - title.GetWidth()/2);
+ts.SetY(H/2 + logo.GetHeight()/2 - 10);
+frame = 0;
+fun refresh() {
+  frame++;
+  ls.SetOpacity(0.78 + 0.22 * Math.Sin(frame / 12.0));
+}
+Plymouth.SetRefreshFunction(refresh);

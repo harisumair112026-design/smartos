@@ -1,8 +1,26 @@
 #!/bin/busybox sh
 export PATH=/bin:/sbin
 mount -t proc proc /proc; mount -t sysfs sys /sys; mount -t devtmpfs dev /dev
-echo "Smart OS: boot shuru"
+say(){ grep -q quiet /proc/cmdline || echo "$@"; }
+say "Smart OS: boot shuru"
 mkdir -p /iso /ro /rw /new
+if grep -q smartos.installed /proc/cmdline; then
+  # disk par install hua Smart OS: seedha ext4 root (data save rehta hai)
+  n=0; OK=""
+  while [ $n -lt 40 ] && [ -z "$OK" ]; do
+    for d in /dev/sd* /dev/vd* /dev/nvme*n*p* /dev/mmcblk*p* /dev/hd*; do
+      [ -b "$d" ] || continue
+      if mount -t ext4 -o rw "$d" /new 2>/dev/null; then
+        if [ -f /new/etc/smartos-root ]; then OK=$d; break; fi
+        umount /new
+      fi
+    done
+    [ -z "$OK" ] && sleep 1; n=$((n+1))
+  done
+  if [ -z "$OK" ]; then echo "Smart OS: root partition nahi mili"; ls /dev; exec sh; fi
+  mount --move /dev /new/dev; mount --move /proc /new/proc; mount --move /sys /new/sys
+  exec switch_root /new /sbin/init
+fi
 FOUND=""; n=0
 while [ $n -lt 90 ] && [ -z "$FOUND" ]; do
   for d in /dev/sr* /dev/sd* /dev/vd* /dev/nvme*n* /dev/hd*; do
@@ -16,7 +34,7 @@ while [ $n -lt 90 ] && [ -z "$FOUND" ]; do
   n=$((n+1))
 done
 if [ -z "$FOUND" ]; then echo "Smart OS: ISO nahi mili (USB/CD check karo)"; ls /dev; cat /proc/partitions; exec sh; fi
-echo "Smart OS: ISO mili $FOUND"
+say "Smart OS: ISO mili $FOUND"
 mount -t squashfs -o ro,loop /iso/smartos.sfs /ro || { echo "squashfs mount fail"; exec sh; }
 mount -t tmpfs -o size=50%,mode=755 tmpfs /rw
 mkdir -p /rw/u /rw/w

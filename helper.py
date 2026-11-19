@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Smart OS helper: Smart OS ko localhost par serve karta hai + allowlist wale Linux apps launch karta hai.
 Sirf 127.0.0.1 par sunta hai. Har kaam ke liye secret token chahiye (har boot par naya)."""
-import os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
+import re, os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
 ROOT = os.environ.get("SMARTOS_ROOT", "/opt/smartos")
 PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
@@ -26,6 +26,24 @@ def nm(*a):
         return subprocess.run(["nmcli", *a], capture_output=True, text=True, timeout=40)
     except Exception as e:
         return subprocess.CompletedProcess(a, 1, "", "nmcli nahi mila: %s" % e)
+def live_disk():
+    try:
+        src = subprocess.run(["findmnt", "-no", "SOURCE", "/mnt/iso"], capture_output=True, text=True).stdout.strip()
+        if not src: return ""
+        pk = subprocess.run(["lsblk", "-no", "PKNAME", src], capture_output=True, text=True).stdout.split()
+        return "/dev/" + pk[0] if pk else src
+    except Exception: return ""
+def disks():
+    try:
+        o = json.loads(subprocess.run(["lsblk", "-J", "-b", "-d", "-o", "NAME,SIZE,MODEL,TYPE,TRAN"], capture_output=True, text=True).stdout)
+    except Exception: return []
+    live = live_disk(); L = []
+    for d in o.get("blockdevices", []):
+        dev = "/dev/" + d["name"]
+        if d.get("type") != "disk" or dev == live or int(d.get("size") or 0) < 3500000000: continue
+        if not re.match(r"^/dev/(sd[a-z]+|vd[a-z]+|hd[a-z]+|nvme[0-9]+n[0-9]+|mmcblk[0-9]+)$", dev): continue
+        L.append({"dev": dev, "size": int(d["size"]), "model": (d.get("model") or "Disk").strip(), "tran": d.get("tran") or ""})
+    return L
 class H(http.server.SimpleHTTPRequestHandler):
     def __init__(s, *a, **k): super().__init__(*a, directory=ROOT, **k)
     def log_message(s, *a): pass
@@ -54,6 +72,11 @@ class H(http.server.SimpleHTTPRequestHandler):
         if u.path.startswith("/api/"):
             if not s.authed(): return s.send_error(403)
             if u.path == "/api/apps": return s.j(installed())
+            if u.path == "/api/install/disks": return s.j(disks())
+            if u.path == "/api/install/status":
+                try: pc, msg = open("/run/smartos-install.progress").read().strip().split("|", 1)
+                except Exception: pc, msg = "0", ""
+                return s.j({"pct": int(pc), "msg": msg})
             if u.path == "/api/wifi/scan":
                 nm("device", "wifi", "rescan")
                 r = nm("-t", "-f", "SSID,SIGNAL,SECURITY,IN-USE", "device", "wifi", "list"); L = []
@@ -70,6 +93,13 @@ class H(http.server.SimpleHTTPRequestHandler):
             a = APPS.get(str(d.get("app", "")))
             if not a or not shutil.which(a[1][0]): return s.j({"ok": False, "msg": "app nahi mila"}, 404)
             subprocess.Popen(a[1], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            return s.j({"ok": True})
+        if s.path == "/api/install/start":
+            dev = str(d.get("disk", ""))
+            if dev not in [x["dev"] for x in disks()] or d.get("confirm") != "ERASE": return s.j({"ok": False, "msg": "galat disk ya confirm"}, 400)
+            try: os.remove("/run/smartos-install.progress")
+            except Exception: pass
+            subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             return s.j({"ok": True})
         if s.path == "/api/desktop":   # kiosk browser band => asli Lubuntu desktop dikhega
             subprocess.run(["pkill", "-f", "smartos-kiosk"]); return s.j({"ok": True})

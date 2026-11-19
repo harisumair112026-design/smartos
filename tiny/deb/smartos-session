@@ -1,15 +1,18 @@
 #!/bin/bash
 xset s off; xset -dpms; xset s noblank
 export XCURSOR_THEME=DMZ-White XCURSOR_SIZE=24
-xsetroot -cursor_name left_ptr 2>/dev/null
+xsetroot -solid '#0b1020' -cursor_name left_ptr 2>/dev/null
 unclutter -idle 4 &
+CMD=$(cat /proc/cmdline)
+AI=$(echo "$CMD" | grep -o 'smartos.autoinstall=[^ ]*' | cut -d= -f2)
+if [ -n "$AI" ]; then   # CI test: bina poochhe install, phir band
+  sudo -n /usr/local/bin/smartos-install "$AI"; sleep 2; sudo -n systemctl poweroff; exit 0
+fi
+URL=http://127.0.0.1:8080/
+echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && URL=http://127.0.0.1:8080/install.html
 python3 /opt/smartos/helper.py >/dev/null 2>&1 &
-for i in $(seq 1 60); do curl -s http://127.0.0.1:8080/ >/dev/null 2>&1 && break; sleep 0.3; done
+for i in $(seq 1 60); do (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null && break; sleep 0.5; done
 while true; do
-  google-chrome-stable --kiosk --no-first-run --no-default-browser-check --noerrdialogs --disable-infobars \
-    --user-data-dir=$HOME/.chrome --autoplay-policy=no-user-gesture-required --disable-features=Translate \
-    --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 \
-    --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation \
-    http://127.0.0.1:8080/
+  google-chrome-stable --kiosk --no-first-run --no-default-browser-check --noerrdialogs --disable-infobars --user-data-dir=$HOME/.chrome --autoplay-policy=no-user-gesture-required --disable-features=Translate --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation $URL
   sleep 1
 done
