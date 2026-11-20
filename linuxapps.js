@@ -27,6 +27,15 @@ window.openLinuxApps=function(){
  })();
  return w};
 
+window.openSysInfo=function(){
+ const w=createWindow('System Info','ℹ️','<div class="si" style="padding:18px;font:14px/1.7 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',460,420);
+ const R=w.querySelector('.si');
+ (async()=>{try{const i=await api('/api/sysinfo');const row=(k,v)=>'<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #1f2b4d"><b style="width:120px;color:#9fb0d6">'+k+'</b><span>'+esc(String(v))+'</span></div>';
+  R.innerHTML='<div style="font:700 22px system-ui;margin-bottom:10px">Smart OS</div>'+row('Kernel',i.kernel_brand+' (Linux '+i.kernel+')')+row('Base',i.base)+row('Mode',i.mode==='live'?'Live (restart par data nahi bachta)':'Installed (data save rehta hai)')+row('CPU',i.cpu+' x'+i.cores)+row('RAM',i.ram_free_mb+' MB free / '+i.ram_total_mb+' MB')+row('Disk',i.disk_free_gb+' GB free / '+i.disk_total_gb+' GB')+row('Uptime',i.uptime_min+' min')
+ }catch(e){R.textContent='⚠ System info sirf Smart OS ISO me milti hai'}})();
+ return w};
+window.openInstaller=function(){
+ return createWindow('Install Smart OS','💽','<iframe src="/install.html" style="width:100%;height:100%;border:0;background:#0b1020"></iframe>',720,640)};
 window.openNativeApp=function(id,name,icon){
  const w=createWindow(name,icon,'<div class="nx" style="height:100%;width:100%;background:#0b1020;color:#9fb0d6;font:13px system-ui;padding:14px;box-sizing:border-box">⏳ '+esc(name)+' khul raha hai...</div>',980,640);
  const R=w.querySelector('.nx');let xid=null,dead=false,last='',since=0,sent='';
@@ -97,6 +106,8 @@ setTimeout(async function(){if(!window.smApps)return;
  var has=function(n){return window.smApps.some(function(x){return x[0]===n})};
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
+ if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
+ try{var inf=await api('/api/info');if(inf.live&&!has('Install Smart OS'))window.smApps.push(['Install Smart OS','💽','#22c55e','#15803d','System','openInstaller'])}catch(e){}
  var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️',net:'🌐',media:'🎬',gfx:'🎨',dev:'🛠️',game:'🎮',sys:'⚙️',util:'🧰'};
  window.__lx=window.__lx||{};
  var sync=async function(){try{var L=await api('/api/apps');var names={};

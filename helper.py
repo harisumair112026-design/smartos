@@ -9,8 +9,8 @@ HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
   "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartApp", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "--window-position=0,0", "--window-size={W},{H}", "https://www.google.com"]),
   "xterm": ("xterm", ["xterm", "-class", "SmartApp", "-geometry", "{COLS}x{ROWS}"]),
-  "firefox": ("Firefox", ["firefox"]),
-  "files": ("Files", ["pcmanfm-qt"]),
+  "firefox": ("Firefox", ["firefox-esr"]),
+  "files": ("Files", ["pcmanfm"]),
   "editor": ("Text Editor", ["featherpad"]),
   "terminal": ("Terminal", ["qterminal"]),
   "office": ("LibreOffice", ["libreoffice"]),
@@ -181,7 +181,9 @@ def live_disk():
         pk = subprocess.run(["lsblk", "-no", "PKNAME", src], capture_output=True, text=True).stdout.split()
         return "/dev/" + pk[0] if pk else src
     except Exception: return ""
+def is_live(): return os.path.isdir("/mnt/ro") and os.path.isdir("/mnt/iso")
 def disks():
+    if not is_live(): return []
     try:
         o = json.loads(subprocess.run(["lsblk", "-J", "-b", "-d", "-o", "NAME,SIZE,MODEL,TYPE,TRAN"], capture_output=True, text=True).stdout)
     except Exception: return []
@@ -220,6 +222,19 @@ class H(http.server.SimpleHTTPRequestHandler):
         if u.path.startswith("/api/"):
             if not s.authed(): return s.send_error(403)
             if u.path == "/api/apps": return s.j(installed())
+            if u.path == "/api/info": return s.j({"live": is_live()})
+            if u.path == "/api/sysinfo":
+                def rd(f):
+                    try: return open(f).read()
+                    except Exception: return ""
+                osr = dict(l.split("=", 1) for l in rd("/etc/os-release").splitlines() if "=" in l)
+                mem = {l.split(":")[0]: int(l.split()[1]) for l in rd("/proc/meminfo").splitlines() if l.split()[1:2] and l.split()[1].isdigit()}
+                cpu = next((l.split(":", 1)[1].strip() for l in rd("/proc/cpuinfo").splitlines() if l.startswith("model name")), "")
+                st = os.statvfs("/")
+                return s.j({"os": "Smart OS", "kernel_brand": osr.get("KERNEL_BRAND", "").strip('"') or "Dios Kernel 1.1.1", "kernel": os.uname().release, "base": osr.get("PRETTY_NAME", "").strip('"'),
+                  "ram_total_mb": mem.get("MemTotal", 0) // 1024, "ram_free_mb": mem.get("MemAvailable", 0) // 1024, "cpu": cpu, "cores": os.cpu_count(),
+                  "disk_total_gb": round(st.f_blocks * st.f_frsize / 1e9, 1), "disk_free_gb": round(st.f_bavail * st.f_frsize / 1e9, 1),
+                  "uptime_min": int(float(rd("/proc/uptime").split()[0] or 0) // 60), "mode": "live" if is_live() else "installed"})
             if u.path == "/api/install/disks": return s.j(disks())
             if u.path == "/api/term/read":
                 t = TERMS.get(urllib.parse.parse_qs(u.query).get("id", [""])[0])
