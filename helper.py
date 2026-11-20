@@ -7,9 +7,8 @@ PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
 HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
-  "chrome": ("Google Chrome", ["google-chrome-stable"]),
+  "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartChrome", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "https://www.google.com"]),
   "firefox": ("Firefox", ["firefox"]),
-  "xterm": ("Terminal (Debian)", ["xterm", "-fa", "DejaVu Sans Mono", "-fs", "13", "-geometry", "110x32"]),
   "files": ("Files", ["pcmanfm-qt"]),
   "editor": ("Text Editor", ["featherpad"]),
   "terminal": ("Terminal", ["qterminal"]),

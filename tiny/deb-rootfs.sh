@@ -51,7 +51,7 @@ p=sys.argv[1]+"/etc/xdg/openbox/rc.xml"
 if os.path.exists(p):
     s=open(p).read()
     s=re.sub(r"<applications>.*?</applications>","",s,flags=re.S)
-    s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus><decor>yes</decor></application></applications>\n</openbox_config>")
+    s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus></application><application class=\"SmartChrome\"><layer>above</layer><focus>yes</focus><maximized>yes</maximized></application></applications>\n</openbox_config>")
     open(p,"w").write(s)
 PY
 mkdir -p $R/home/smart
@@ -64,8 +64,20 @@ XTerm*scrollBar: false
 XTerm*saveLines: 5000
 XTerm*selectToClipboard: true
 XR
+mkdir -p $R/etc/X11/xorg.conf.d
+cat > $R/etc/X11/xorg.conf.d/40-smartos-input.conf <<'XC'
+Section "InputClass"
+    Identifier "smartos touchpad"
+    MatchIsTouchpad "on"
+    Driver "libinput"
+    Option "Tapping" "on"
+    Option "ClickMethod" "buttonareas"
+    Option "DisableWhileTyping" "on"
+    Option "MiddleEmulation" "off"
+EndSection
+XC
 echo smartos > $R/etc/hostname; : > $R/etc/fstab
-printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\n' > $R/etc/os-release
+printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\nKERNEL_BRAND="Dios Kernel 1.1.1"\n' > $R/etc/os-release
 chroot $R /bin/bash -c '
 useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >/dev/null; passwd -d smart >/dev/null
 echo "xrdb -merge ~/.Xresources; exec openbox-session" > /home/smart/.xinitrc
