@@ -1,0 +1,46 @@
+name: vb-like-test
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        default: deb-15
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq qemu-system-x86 socat ffmpeg xorriso >/dev/null
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules; sudo udevadm trigger --name-match=kvm || true
+          mkdir w && cd w
+          id=$(gh api repos/$GITHUB_REPOSITORY/releases/tags/${{ inputs.tag }} -q '.assets[]|select(.name=="SmartOS-Tiny.iso").id')
+          gh api -H "Accept: application/octet-stream" repos/$GITHUB_REPOSITORY/releases/assets/$id > iso.iso
+          xorriso -osirrox on -indev iso.iso -extract /boot/vmlinuz vmlinuz -extract /boot/initrd.gz initrd.gz >/dev/null 2>&1; ls -la
+      - name: Install on SATA disk then boot like VirtualBox
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd w; mkdir -p ../shots
+          ACCEL="-accel kvm -cpu host"; [ -w /dev/kvm ] || ACCEL="-accel tcg"
+          qemu-img create -f qcow2 disk.qcow2 24G
+          SATA="-device ich9-ahci,id=ahci -drive file=disk.qcow2,if=none,id=d0,format=qcow2 -device ide-hd,drive=d0,bus=ahci.0"
+          timeout 900 qemu-system-x86_64 $ACCEL -m 2048 -smp 2 -vga std -display none -serial file:$PWD/inst.log \
+            -cdrom iso.iso $SATA -kernel vmlinuz -initrd initrd.gz -append "quiet loglevel=3 smartos.autoinstall=/dev/sda console=ttyS0" || true
+          grep -A60 "INSTALL RESULT" inst.log | tail -25
+          shot(){ echo "screendump $PWD/$1.ppm" | socat - UNIX-CONNECT:/tmp/mon >/dev/null || true; }
+          # A) GRUB se BIOS boot (VirtualBox jaisa)
+          qemu-system-x86_64 $ACCEL -m 1024 -smp 2 -vga std -display none -serial none $SATA -monitor unix:/tmp/mon,server,nowait &
+          Q=$!; for t in 4 8 14 20 30 45 60 90 120; do sleep 6; shot A$t; done
+          echo quit | socat - UNIX-CONNECT:/tmp/mon; wait $Q || true
+          # B) direct kernel debug (serial) - init path
+          qemu-system-x86_64 $ACCEL -m 1024 -smp 2 -vga std -display none -serial file:$PWD/B.log $SATA -kernel vmlinuz -initrd initrd.gz -append "smartos.installed loglevel=7 console=ttyS0" -monitor unix:/tmp/mon,server,nowait &
+          Q=$!; sleep 70; shot B70; echo quit | socat - UNIX-CONNECT:/tmp/mon; wait $Q || true
+          for f in *.ppm; do ffmpeg -loglevel error -y -i "$f" "../shots/vb-${f%.ppm}.png"; done
+          cp inst.log ../shots/vb-inst.txt; cp B.log ../shots/vb-B.txt
+          cd ../shots; for f in *; do [ -s "$f" ] && gh release upload tinytest "$f" --clobber -R $GITHUB_REPOSITORY; done
