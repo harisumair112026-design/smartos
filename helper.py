@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Smart OS helper: Smart OS ko localhost par serve karta hai + allowlist wale Linux apps launch karta hai.
 Sirf 127.0.0.1 par sunta hai. Har kaam ke liye secret token chahiye (har boot par naya)."""
-import pty, fcntl, termios, struct, select, threading, base64, signal, re, os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
+import time, pty, fcntl, termios, struct, select, threading, base64, signal, re, os, http.server, socketserver, json, os, secrets, shutil, subprocess, urllib.parse
 ROOT = os.environ.get("SMARTOS_ROOT", "/opt/smartos")
 PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
 HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
-  "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartChrome", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "https://www.google.com"]),
+  "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartChrome", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "--window-position=0,0", "--window-size={W},{H}", "https://www.google.com"]),
+  "xterm": ("xterm", ["xterm"]),
   "firefox": ("Firefox", ["firefox"]),
   "files": ("Files", ["pcmanfm-qt"]),
   "editor": ("Text Editor", ["featherpad"]),
@@ -26,6 +27,34 @@ def nm(*a):
     except Exception as e:
         return subprocess.CompletedProcess(a, 1, "", "nmcli nahi mila: %s" % e)
 TERMS = {}
+GUIS = {}
+class Gui:
+    """Linux app ko virtual screen (Xvfb) me chalata hai aur noVNC se Smart OS window me dikhata hai."""
+    def __init__(s, app, w, h):
+        a = APPS[app]; s.procs = []
+        s.n = next(n for n in range(20, 80) if not os.path.exists("/tmp/.X11-unix/X%d" % n) and n not in [g.n for g in GUIS.values()])
+        n = s.n; s.port = 6100 + n; s.pw = secrets.token_hex(4); vp = 5900 + n
+        env = dict(os.environ, DISPLAY=":%d" % n)
+        def sp(cmd): 
+            p = subprocess.Popen(cmd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True); s.procs.append(p); return p
+        sp(["Xvfb", ":%d" % n, "-screen", "0", "%dx%dx24" % (w, h), "-nolisten", "tcp", "-ac"])
+        for _ in range(60):
+            if os.path.exists("/tmp/.X11-unix/X%d" % n): break
+            time.sleep(0.1)
+        if shutil.which("openbox"): sp(["openbox"])
+        sp([c.replace("{W}", str(w)).replace("{H}", str(h)) for c in a[1]])
+        sp(["x11vnc", "-display", ":%d" % n, "-rfbport", str(vp), "-localhost", "-passwd", s.pw, "-forever", "-shared", "-noxdamage", "-quiet"])
+        web = "/usr/share/novnc"
+        sp(["websockify", "--web", web, "127.0.0.1:%d" % s.port, "127.0.0.1:%d" % vp])
+    def close(s):
+        for p in reversed(s.procs):
+            try: os.killpg(p.pid, signal.SIGTERM)
+            except Exception: pass
+        for p in s.procs:
+            try: p.wait(timeout=2)
+            except Exception:
+                try: os.killpg(p.pid, signal.SIGKILL)
+                except Exception: pass
 class Term:
     def __init__(s, rows, cols):
         pid, fd = pty.fork()
@@ -148,6 +177,20 @@ class H(http.server.SimpleHTTPRequestHandler):
             except Exception: pass
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             return s.j({"ok": True})
+        if s.path == "/api/gui/open":
+            a = APPS.get(str(d.get("app", "")))
+            if not a or not shutil.which(a[1][0]): return s.j({"ok": False, "msg": "app nahi mila"}, 404)
+            if not (shutil.which("Xvfb") and shutil.which("x11vnc") and shutil.which("websockify")): return s.j({"ok": False, "msg": "Xvfb/x11vnc/websockify install nahi hai"}, 500)
+            if len(GUIS) >= 3: return s.j({"ok": False, "msg": "3 se zyada Linux apps ek saath nahi chal sakte (RAM)"}, 400)
+            w = max(320, min(int(d.get("w", 1024)), 1920)); h = max(240, min(int(d.get("h", 640)), 1080))
+            try: g = Gui(str(d["app"]), w, h)
+            except Exception as e: return s.j({"ok": False, "msg": str(e)}, 500)
+            gid = secrets.token_hex(8); GUIS[gid] = g
+            return s.j({"ok": True, "id": gid, "port": g.port, "pw": g.pw})
+        if s.path == "/api/gui/close":
+            g = GUIS.pop(str(d.get("id", "")), None)
+            if g: g.close()
+            return s.j({"ok": bool(g)})
         if s.path == "/api/term/open":
             for k in [k for k, v in TERMS.items() if not v.alive]: TERMS.pop(k).close()
             if len(TERMS) >= 4: return s.j({"ok": False, "msg": "bahut terminal khule hain"}, 400)

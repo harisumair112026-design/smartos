@@ -22,11 +22,11 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
+for p in "xvfb x11vnc novnc websockify" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
-chroot $R dpkg -l | grep -E "^ii +(plymouth|grub2-common|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 
+chroot $R dpkg -l | grep -E "^ii +(plymouth|xvfb|x11vnc|novnc|websockify|grub2-common|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 
 rm -f $R/boot/initrd.img-* $R/boot/vmlinuz-* 2>/dev/null || true
 mkdir -p $R/usr/share/plymouth/themes/smartos $R/etc/plymouth
 cp tiny/splash/smartos.plymouth tiny/splash/smartos.script tiny/splash/logo.png $R/usr/share/plymouth/themes/smartos/
@@ -76,6 +76,16 @@ Section "InputClass"
     Option "MiddleEmulation" "off"
 EndSection
 XC
+cat > $R/usr/local/bin/smartos-zram <<'ZR'
+#!/bin/sh
+modprobe zram num_devices=1 2>/dev/null || exit 0
+[ -e /sys/block/zram0/disksize ] || exit 0
+echo zstd > /sys/block/zram0/comp_algorithm 2>/dev/null || echo lzo > /sys/block/zram0/comp_algorithm 2>/dev/null
+echo $(( $(awk '/MemTotal/{print $2}' /proc/meminfo) * 1024 )) > /sys/block/zram0/disksize
+mkswap /dev/zram0 >/dev/null && swapon -p 100 /dev/zram0
+ZR
+chmod 755 $R/usr/local/bin/smartos-zram
+printf '[Unit]\nDescription=zram swap\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/smartos-zram\nRemainAfterExit=yes\n[Install]\nWantedBy=multi-user.target\n' > $R/etc/systemd/system/smartos-zram.service
 echo smartos > $R/etc/hostname; : > $R/etc/fstab
 printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\nKERNEL_BRAND="Dios Kernel 1.1.1"\n' > $R/etc/os-release
 chroot $R /bin/bash -c '
@@ -83,7 +93,7 @@ useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >
 echo "xrdb -merge ~/.Xresources; exec openbox-session" > /home/smart/.xinitrc
 echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && exec startx" > /home/smart/.bash_profile
 chown smart:smart /home/smart; chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile /home/smart/.Xresources
-systemctl enable NetworkManager smartos-debug.service
+systemctl enable NetworkManager smartos-debug.service smartos-zram.service
 systemctl mask apt-daily.timer apt-daily-upgrade.timer systemd-networkd-wait-online.service NetworkManager-wait-online.service
 systemctl set-default multi-user.target
 apt-get clean'

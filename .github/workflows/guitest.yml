@@ -1,0 +1,35 @@
+name: gui-test
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends xvfb x11vnc novnc websockify openbox xterm imagemagick x11-utils socat >/dev/null
+      - name: Test helper GUI sessions
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/root && cp linuxapps.js /tmp/root/
+          SMARTOS_ROOT=/tmp/root SMARTOS_PORT=8097 python3 helper.py &
+          sleep 2
+          H="Host: 127.0.0.1:8097"
+          T=$(curl -s -H "$H" http://127.0.0.1:8097/api/token | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          R=$(curl -s -H "$H" -H "X-Token: $T" -X POST -d '{"app":"xterm","w":900,"h":560}' http://127.0.0.1:8097/api/gui/open); echo "$R"
+          PORT=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['port'])"); ID=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+          sleep 4
+          echo "novnc page:"; curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:$PORT/vnc.html
+          python3 - <<PY
+          import socket
+          s=socket.create_connection(("127.0.0.1",5900+$PORT-6100),3); print("RFB banner:",s.recv(12))
+          PY
+          DISPLAY=:$((PORT-6100)) xdotool type hi 2>/dev/null || true
+          import -display :$((PORT-6100)) -window root /tmp/gui.png && ls -la /tmp/gui.png
+          ps aux | grep -E "Xvfb|x11vnc|websockify|xterm" | grep -v grep | awk '{print $11,$12,$13}' | head
+          curl -s -H "$H" -H "X-Token: $T" -X POST -d "{\"id\":\"$ID\"}" http://127.0.0.1:8097/api/gui/close; echo
+          sleep 3; echo "after close:"; ps aux | grep -E "Xvfb|x11vnc|websockify" | grep -v grep | wc -l
+          gh release view tinytest >/dev/null 2>&1 || gh release create tinytest -t t -n t
+          cp /tmp/gui.png gui-${{ github.run_number }}.png; gh release upload tinytest gui-${{ github.run_number }}.png --clobber

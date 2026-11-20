@@ -27,6 +27,17 @@ window.openLinuxApps=function(){
  })();
  return w};
 
+window.openGuiApp=function(id,name,icon){
+ const w=createWindow(name,icon,'<div class="gui" style="height:100%;width:100%;background:#000"><div style="color:#9fb0d6;padding:14px;font:13px system-ui">⏳ '+esc(name)+' khul raha hai...</div></div>',980,640);
+ const R=w.querySelector('.gui');let gid=null;
+ (async()=>{
+  try{const r=await post('/api/gui/open',{app:id,w:1024,h:640});if(!r.ok)throw new Error(r.msg||'error');gid=r.id;
+   await new Promise(x=>setTimeout(x,1800));
+   R.innerHTML='<iframe allow="clipboard-read; clipboard-write" style="width:100%;height:100%;border:0;background:#000" src="http://127.0.0.1:'+r.port+'/vnc.html?autoconnect=1&resize=scale&reconnect=1&reconnect_delay=1000&show_dot=1&password='+r.pw+'&path=websockify"></iframe>';
+  }catch(e){R.innerHTML='<div style="color:#fbbf24;padding:14px;font:13px system-ui">⚠ '+esc(e.message)+'</div>'}
+  const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);gid&&post('/api/gui/close',{id:gid}).catch(()=>{})}},3000);
+ })();
+ return w};
 window.openTerminal=function(){
  const w=createWindow('Terminal','💻','<div class="trm" style="height:100%;width:100%;background:#0b1020;box-sizing:border-box;padding:6px;overflow:hidden"></div>',780,480);
  const R=w.querySelector('.trm');let id=null,alive=true,term=null,fit=null,fb=null;
@@ -66,7 +77,7 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
  try{var L=await api('/api/apps');var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️'};
   L.forEach(function(a){if(a.id==='xterm'||a.id==='terminal'||has(a.name))return;
-   window.smApps.push([a.name,IC[a.id]||'🐧','#f59e0b','#b45309','Linux',function(){post('/api/launch',{app:a.id}).catch(function(e){alert('App nahi khula: '+e.message)})}])})}catch(e){}
+   window.smApps.push([a.name,IC[a.id]||'🐧','#f59e0b','#b45309','Linux',function(){openGuiApp(a.id,a.name,IC[a.id]||'🐧')}])})}catch(e){}
  window.smRender&&smRender()},7400);
 // right-click baar baar na ho: 700ms ke andar dobara aaya contextmenu ignore
 (function(){var last=0;window.addEventListener('contextmenu',function(e){var n=Date.now();if(n-last<700){e.preventDefault();e.stopImmediatePropagation();return}last=n},true)})();
