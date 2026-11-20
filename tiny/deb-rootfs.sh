@@ -22,11 +22,11 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "xvfb x11vnc novnc websockify" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
+for p in "xdotool wmctrl" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
-chroot $R dpkg -l | grep -E "^ii +(plymouth|xvfb|x11vnc|novnc|websockify|grub2-common|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 
+chroot $R dpkg -l | grep -E "^ii +(plymouth|xdotool|wmctrl|grub2-common|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 
 rm -f $R/boot/initrd.img-* $R/boot/vmlinuz-* 2>/dev/null || true
 mkdir -p $R/usr/share/plymouth/themes/smartos $R/etc/plymouth
 cp tiny/splash/smartos.plymouth tiny/splash/smartos.script tiny/splash/logo.png $R/usr/share/plymouth/themes/smartos/
@@ -51,7 +51,7 @@ p=sys.argv[1]+"/etc/xdg/openbox/rc.xml"
 if os.path.exists(p):
     s=open(p).read()
     s=re.sub(r"<applications>.*?</applications>","",s,flags=re.S)
-    s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus></application><application class=\"SmartChrome\"><layer>above</layer><focus>yes</focus><maximized>yes</maximized></application></applications>\n</openbox_config>")
+    s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus></application><application class=\"SmartApp\"><layer>above</layer><focus>yes</focus><decor>no</decor></application></applications>\n</openbox_config>")
     open(p,"w").write(s)
 PY
 mkdir -p $R/home/smart

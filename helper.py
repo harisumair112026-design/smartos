@@ -7,8 +7,8 @@ PORT = int(os.environ.get("SMARTOS_PORT", "8080"))
 TOKEN = secrets.token_urlsafe(24)
 HOSTS = {f"localhost:{PORT}", f"127.0.0.1:{PORT}"}
 APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
-  "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartChrome", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "--window-position=0,0", "--window-size={W},{H}", "https://www.google.com"]),
-  "xterm": ("xterm", ["xterm"]),
+  "chrome": ("Google Chrome", ["google-chrome-stable", "--user-data-dir=" + os.path.expanduser("~/.chrome-app"), "--class=SmartApp", "--no-first-run", "--no-default-browser-check", "--disable-gpu", "--enable-unsafe-swiftshader", "--enable-low-end-device-mode", "--renderer-process-limit=1", "--js-flags=--max-old-space-size=256", "--disk-cache-size=1", "--start-maximized", "--window-position=0,0", "--window-size={W},{H}", "https://www.google.com"]),
+  "xterm": ("xterm", ["xterm", "-class", "SmartApp", "-geometry", "{COLS}x{ROWS}"]),
   "firefox": ("Firefox", ["firefox"]),
   "files": ("Files", ["pcmanfm-qt"]),
   "editor": ("Text Editor", ["featherpad"]),
@@ -28,6 +28,48 @@ def nm(*a):
         return subprocess.CompletedProcess(a, 1, "", "nmcli nahi mila: %s" % e)
 TERMS = {}
 GUIS = {}
+XAPPS = {}
+def xdo(*a):
+    try: return subprocess.run(["xdotool", *map(str, a)], capture_output=True, text=True, timeout=5, env=dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))).stdout
+    except Exception: return ""
+def xwids():
+    try:
+        o = subprocess.run(["wmctrl", "-l"], capture_output=True, text=True, timeout=5, env=dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))).stdout
+        return {l.split()[0] for l in o.splitlines() if l.strip()}
+    except Exception: return set()
+class XApp:
+    """Asli Linux app ko main screen par Smart OS ki window ki jagah par rakhta hai (window ke saath move/resize)."""
+    def __init__(s, app, x, y, w, h):
+        s.wid = None; s.shown = False
+        before = xwids()
+        sub = {"{W}": str(w), "{H}": str(h), "{COLS}": str(max(20, w // 8)), "{ROWS}": str(max(5, h // 17))}
+        def fix(c):
+            for k, v in sub.items(): c = c.replace(k, v)
+            return c
+        cmd = [fix(c) for c in APPS[app][1]]
+        s.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        for _ in range(150):
+            time.sleep(0.1)
+            if s.proc.poll() is not None: break
+            new = xwids() - before
+            if new: s.wid = sorted(new)[0]; break
+        if s.wid: s.geom(x, y, w, h, True)
+    def alive(s): return s.proc.poll() is None and s.wid is not None
+    def geom(s, x, y, w, h, show):
+        if not s.wid: return
+        if show:
+            xdo("windowmove", s.wid, x, y); xdo("windowsize", s.wid, max(w, 50), max(h, 50))
+            if not s.shown: xdo("windowmap", s.wid); s.shown = True
+            xdo("windowraise", s.wid)
+        elif s.shown:
+            xdo("windowunmap", s.wid); s.shown = False
+    def close(s):
+        try: os.killpg(s.proc.pid, signal.SIGTERM)
+        except Exception: pass
+        try: s.proc.wait(timeout=2)
+        except Exception:
+            try: os.killpg(s.proc.pid, signal.SIGKILL)
+            except Exception: pass
 class Gui:
     """Linux app ko virtual screen (Xvfb) me chalata hai aur noVNC se Smart OS window me dikhata hai."""
     def __init__(s, app, w, h):
@@ -177,6 +219,22 @@ class H(http.server.SimpleHTTPRequestHandler):
             except Exception: pass
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             return s.j({"ok": True})
+        if s.path == "/api/x/open":
+            a = APPS.get(str(d.get("app", "")))
+            if not a or not shutil.which(a[1][0]) or not shutil.which("xdotool"): return s.j({"ok": False, "msg": "app ya xdotool nahi mila"}, 404)
+            if len(XAPPS) >= 3: return s.j({"ok": False, "msg": "3 se zyada apps ek saath nahi (RAM)"}, 400)
+            g = [int(d.get(k, 0)) for k in ("x", "y", "w", "h")]
+            xa = XApp(str(d["app"]), *g)
+            if not xa.wid: xa.close(); return s.j({"ok": False, "msg": "app ki window nahi bani"}, 500)
+            xid = secrets.token_hex(8); XAPPS[xid] = xa
+            return s.j({"ok": True, "id": xid})
+        if s.path in ("/api/x/geom", "/api/x/close"):
+            xa = XAPPS.get(str(d.get("id", "")))
+            if not xa: return s.j({"ok": False, "alive": False}, 404)
+            if s.path.endswith("close"): XAPPS.pop(str(d["id"]), None); xa.close(); return s.j({"ok": True})
+            xa.geom(int(d.get("x", 0)), int(d.get("y", 0)), int(d.get("w", 100)), int(d.get("h", 100)), bool(d.get("show")))
+            if not xa.alive(): XAPPS.pop(str(d["id"]), None); xa.close(); return s.j({"ok": True, "alive": False})
+            return s.j({"ok": True, "alive": True})
         if s.path == "/api/gui/open":
             a = APPS.get(str(d.get("app", "")))
             if not a or not shutil.which(a[1][0]): return s.j({"ok": False, "msg": "app nahi mila"}, 404)

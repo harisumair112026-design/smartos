@@ -27,6 +27,28 @@ window.openLinuxApps=function(){
  })();
  return w};
 
+window.openNativeApp=function(id,name,icon){
+ const w=createWindow(name,icon,'<div class="nx" style="height:100%;width:100%;background:#0b1020;color:#9fb0d6;font:13px system-ui;padding:14px;box-sizing:border-box">⏳ '+esc(name)+' khul raha hai...</div>',980,640);
+ const R=w.querySelector('.nx');let xid=null,dead=false,last='',since=0,sent='';
+ const rect=()=>{const r=R.getBoundingClientRect(),ox=window.screenX,oy=window.screenY+(window.outerHeight-window.innerHeight);
+  return {x:Math.round(r.left+ox),y:Math.round(r.top+oy),w:Math.round(r.width),h:Math.round(r.height),cx:r.left+r.width/2,cy:r.top+r.height/2,pts:[[r.left+8,r.top+8],[r.right-8,r.top+8],[r.left+8,r.bottom-8],[r.right-8,r.bottom-8],[r.left+r.width/2,r.top+r.height/2]]}};
+ const top=r=>{if(!w.isConnected||r.w<60||r.h<60)return false;const cs=getComputedStyle(w);if(cs.display==='none'||cs.visibility==='hidden')return false;
+  return r.pts.every(p=>{const e=document.elementFromPoint(p[0],p[1]);return e&&w.contains(e)})};
+ (async()=>{
+  try{const r0=rect();const r=await post('/api/x/open',{app:id,x:r0.x,y:r0.y,w:r0.w,h:r0.h});if(!r.ok)throw new Error(r.msg||'error');xid=r.id;R.textContent='';
+  }catch(e){R.innerHTML='<div style="color:#fbbf24">⚠ '+esc(e.message)+'</div>';return}
+  const iv=setInterval(async()=>{
+   if(!w.isConnected){clearInterval(iv);dead=true;post('/api/x/close',{id:xid}).catch(()=>{});return}
+   const r=rect(),key=[r.x,r.y,r.w,r.h].join(','),now=Date.now();
+   if(key!==last){last=key;since=now}
+   const stable=now-since>220,show=stable&&top(r),cmd=show?'s'+key:'h';
+   if(!show&&sent==='h')return;
+   if(show&&sent===cmd&&(now%1200>150))return;
+   sent=cmd;
+   try{const j=await post('/api/x/geom',{id:xid,x:r.x,y:r.y,w:r.w,h:r.h,show});if(j&&j.alive===false){clearInterval(iv);R.textContent='[app band ho gaya]';const c=w.querySelector('.win-close,.close,[data-close]');}}catch(e){}
+  },120);
+ })();
+ return w};
 window.openGuiApp=function(id,name,icon){
  const w=createWindow(name,icon,'<div class="gui" style="height:100%;width:100%;background:#000"><div style="color:#9fb0d6;padding:14px;font:13px system-ui">⏳ '+esc(name)+' khul raha hai...</div></div>',980,640);
  const R=w.querySelector('.gui');let gid=null;
@@ -77,7 +99,7 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
  try{var L=await api('/api/apps');var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️'};
   L.forEach(function(a){if(a.id==='xterm'||a.id==='terminal'||has(a.name))return;
-   window.smApps.push([a.name,IC[a.id]||'🐧','#f59e0b','#b45309','Linux',function(){openGuiApp(a.id,a.name,IC[a.id]||'🐧')}])})}catch(e){}
+   window.smApps.push([a.name,IC[a.id]||'🐧','#f59e0b','#b45309','Linux',function(){openNativeApp(a.id,a.name,IC[a.id]||'🐧')}])})}catch(e){}
  window.smRender&&smRender()},7400);
 // right-click baar baar na ho: 700ms ke andar dobara aaya contextmenu ignore
 (function(){var last=0;window.addEventListener('contextmenu',function(e){var n=Date.now();if(n-last<700){e.preventDefault();e.stopImmediatePropagation();return}last=n},true)})();
