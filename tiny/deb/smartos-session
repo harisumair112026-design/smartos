@@ -2,6 +2,7 @@
 xset s off; xset -dpms; xset s noblank
 export XCURSOR_THEME=DMZ-White XCURSOR_SIZE=24
 xsetroot -solid '#0b1020' -cursor_name left_ptr 2>/dev/null
+(amixer -q sset Master 80% unmute; amixer -q sset PCM 80% unmute; amixer -q sset Speaker 80% unmute) >/dev/null 2>&1
 unclutter -idle 4 &
 CMD=$(cat /proc/cmdline)
 AI=$(echo "$CMD" | grep -o 'smartos.autoinstall=[^ ]*' | cut -d= -f2)

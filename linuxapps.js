@@ -34,6 +34,17 @@ window.openSysInfo=function(){
   R.innerHTML='<div style="font:700 22px system-ui;margin-bottom:10px">Smart OS</div>'+row('Kernel',i.kernel_brand+' (Linux '+i.kernel+')')+row('Base',i.base)+row('Mode',i.mode==='live'?'Live (restart par data nahi bachta)':'Installed (data save rehta hai)')+row('CPU',i.cpu+' x'+i.cores)+row('RAM',i.ram_free_mb+' MB free / '+i.ram_total_mb+' MB')+row('Disk',i.disk_free_gb+' GB free / '+i.disk_total_gb+' GB')+row('Uptime',i.uptime_min+' min')
  }catch(e){R.textContent='⚠ System info sirf Smart OS ISO me milti hai'}})();
  return w};
+window.openAppStore=function(){
+ const w=createWindow('App Store','🛍️','<div class="as" style="padding:16px;font:14px system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto"><div style="color:#9fb0d6">⏳ list aa rahi hai...</div></div>',560,560);
+ const R=w.querySelector('.as');let busy=false;
+ const draw=async()=>{if(busy||!w.isConnected)return;busy=true;try{const L=await api('/api/pkg/list');
+  R.innerHTML='<div style="font:700 20px system-ui;margin-bottom:4px">App Store</div><div style="color:#9fb0d6;margin-bottom:12px">Install hone par app Start menu ke Linux me apne aap aa jati hai. Internet chahiye.</div>'+L.map(a=>{
+   const btn=a.installed?'<span style="color:#4ade80">✔ Installed</span>':a.status==='running'?'<span style="color:#fbbf24">⏳ Install ho raha hai...</span>':'<button data-k="'+a.key+'" style="background:#3b82f6;color:#fff;border:0;border-radius:8px;padding:7px 14px;cursor:pointer">Install</button>';
+   return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;margin:6px 0;background:#121a33;border:1px solid #26345f;border-radius:10px"><div><b>'+esc(a.name)+'</b> <span style="color:#9fb0d6">~'+a.mb+' MB</span><div style="color:#9fb0d6;font-size:13px">'+esc(a.desc)+'</div>'+(a.status==='fail'?'<div style="color:#fca5a5;font-size:13px">❌ '+esc(a.msg)+'</div>':'')+'</div><div>'+btn+'</div></div>'}).join('')
+ }catch(e){R.textContent='⚠ App Store sirf Smart OS ISO me chalta hai'}busy=false};
+ R.addEventListener('click',async e=>{const b=e.target.closest('button[data-k]');if(!b)return;b.disabled=true;const r=await post('/api/pkg/install',{key:b.dataset.k});if(!r.ok)alert(r.msg||'error');draw()});
+ draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}draw()},2500);
+ return w};
 window.openInstaller=function(){
  return createWindow('Install Smart OS','💽','<iframe src="/install.html" style="width:100%;height:100%;border:0;background:#0b1020"></iframe>',720,640)};
 window.openNativeApp=function(id,name,icon){
@@ -106,6 +117,7 @@ setTimeout(async function(){if(!window.smApps)return;
  var has=function(n){return window.smApps.some(function(x){return x[0]===n})};
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
+ if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
  try{var inf=await api('/api/info');if(inf.live&&!has('Install Smart OS'))window.smApps.push(['Install Smart OS','💽','#22c55e','#15803d','System','openInstaller'])}catch(e){}
  var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️',net:'🌐',media:'🎬',gfx:'🎨',dev:'🛠️',game:'🎮',sys:'⚙️',util:'🧰'};

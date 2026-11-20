@@ -56,6 +56,29 @@ def nm(*a):
         return subprocess.run(["nmcli", *a], capture_output=True, text=True, timeout=40)
     except Exception as e:
         return subprocess.CompletedProcess(a, 1, "", "nmcli nahi mila: %s" % e)
+PKGS = {  # key: (naam, packages, MB jagah, kya hai)
+  "libreoffice": ("LibreOffice", ["libreoffice-writer", "libreoffice-calc", "libreoffice-impress"], 450, "Word, Excel, PowerPoint jaisa office (bhaari)"),
+  "vlc": ("VLC Player", ["vlc"], 150, "Video aur music player"),
+  "gimp": ("GIMP", ["gimp"], 220, "Photo editor"),
+  "thunderbird": ("Thunderbird", ["thunderbird"], 230, "Email app"),
+  "evince": ("PDF Viewer", ["evince"], 40, "PDF kholne ke liye"),
+  "mpv": ("MPV Player", ["mpv"], 90, "Halka video player"),
+  "geany": ("Geany Code Editor", ["geany"], 30, "Code likhne ka editor"),
+}
+PKG_STATE = {}
+def pkg_installed(pk):
+    try: return "install ok installed" in subprocess.run(["dpkg-query", "-W", "-f=${Status}", pk], capture_output=True, text=True).stdout
+    except Exception: return False
+def pkg_run(key):
+    name, pkgs, mb, _ = PKGS[key]
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    st = PKG_STATE[key]
+    try:
+        r = subprocess.run(["sudo", "-n", "apt-get", "update", "-qq"], capture_output=True, text=True, env=env, timeout=300)
+        r = subprocess.run(["sudo", "-n", "apt-get", "install", "-y", "--no-install-recommends"] + pkgs, capture_output=True, text=True, env=env, timeout=1800)
+        if r.returncode == 0: st.update(status="done", msg="Install ho gaya")
+        else: st.update(status="fail", msg=((r.stderr or r.stdout).strip().splitlines() or ["error"])[-1][:200])
+    except Exception as e: st.update(status="fail", msg=str(e)[:200])
 TERMS = {}
 GUIS = {}
 XAPPS = {}
@@ -223,6 +246,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             if not s.authed(): return s.send_error(403)
             if u.path == "/api/apps": return s.j(installed())
             if u.path == "/api/info": return s.j({"live": is_live()})
+            if u.path == "/api/pkg/list":
+                return s.j([{"key": k, "name": v[0], "mb": v[2], "desc": v[3], "installed": all(pkg_installed(p) for p in v[1]), "status": PKG_STATE.get(k, {}).get("status", ""), "msg": PKG_STATE.get(k, {}).get("msg", "")} for k, v in PKGS.items()])
             if u.path == "/api/sysinfo":
                 def rd(f):
                     try: return open(f).read()
@@ -269,6 +294,16 @@ class H(http.server.SimpleHTTPRequestHandler):
             try: os.remove("/run/smartos-install.progress")
             except Exception: pass
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            return s.j({"ok": True})
+        if s.path == "/api/pkg/install":
+            k = str(d.get("key", ""))
+            if k not in PKGS: return s.j({"ok": False, "msg": "galat app"}, 404)
+            if PKG_STATE.get(k, {}).get("status") == "running": return s.j({"ok": True})
+            if any(v.get("status") == "running" for v in PKG_STATE.values()): return s.j({"ok": False, "msg": "pehle wala install khatam hone do"}, 400)
+            st = os.statvfs("/"); free = st.f_bavail * st.f_frsize // 1048576
+            if free < PKGS[k][2] * 1.6: return s.j({"ok": False, "msg": "Jagah kam hai (%d MB free, %d MB chahiye). Smart OS ko disk par install karo." % (free, PKGS[k][2] * 1.6)}, 400)
+            PKG_STATE[k] = {"status": "running", "msg": "Install ho raha hai (internet chahiye)..."}
+            threading.Thread(target=pkg_run, args=(k,), daemon=True).start()
             return s.j({"ok": True})
         if s.path == "/api/x/open":
             a = app_lookup(str(d.get("app", "")))
