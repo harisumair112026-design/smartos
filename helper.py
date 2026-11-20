@@ -19,8 +19,38 @@ APPS = {  # id: (naam, command)  -- sirf yahi apps khul sakte hain
   "software": ("Software", ["discover"]),
   "installer": ("Install to disk", ["calamares_polkit"]),
 }
+import glob, shlex, configparser
+CATS = [("Network", "net"), ("Office", "office"), ("AudioVideo", "media"), ("Graphics", "gfx"), ("Development", "dev"), ("Game", "game"), ("System", "sys"), ("Utility", "util")]
+def desk_apps():
+    """Jo Linux apps install honge (/usr/share/applications) unhe apne aap list me laata hai."""
+    reserved = {os.path.basename(v[1][0]) for v in APPS.values()} | {"google-chrome", "google-chrome-stable", "xterm", "uxterm", "x-terminal-emulator", "openbox", "lxterminal"}
+    out = {}
+    for f in sorted(glob.glob("/usr/share/applications/*.desktop") + glob.glob("/usr/local/share/applications/*.desktop")):
+        try:
+            c = configparser.ConfigParser(interpolation=None, strict=False); c.optionxform = str
+            c.read(f, encoding="utf-8")
+            e = c["Desktop Entry"]
+            if e.get("Type") != "Application" or e.get("NoDisplay", "").lower() == "true" or e.get("Hidden", "").lower() == "true": continue
+            if e.get("Terminal", "").lower() == "true" or not e.get("Name") or not e.get("Exec"): continue
+            cmd = [t for t in shlex.split(e["Exec"]) if not re.match(r"^%[a-zA-Z]$", t)]
+            cmd = [t.replace("%%", "%") for t in cmd]
+            if not cmd or os.path.basename(cmd[0]) in reserved or not shutil.which(cmd[0]): continue
+            cats = e.get("Categories", "").split(";")
+            cat = next((v for k, v in CATS if k in cats), "app")
+            did = os.path.basename(f)[:-8]
+            out["d:" + did] = (e["Name"], cmd, cat)
+        except Exception: continue
+    return out
+def app_lookup(aid):
+    if aid in APPS and shutil.which(APPS[aid][1][0]): return APPS[aid][0], APPS[aid][1]
+    d = desk_apps().get(aid)
+    return (d[0], d[1]) if d else None
 def installed():
-    return [{"id": k, "name": v[0]} for k, v in APPS.items() if shutil.which(v[1][0])]
+    L = [{"id": k, "name": v[0], "cat": "app"} for k, v in APPS.items() if shutil.which(v[1][0]) and k != "xterm"]
+    seen = {x["name"] for x in L}
+    for k, (n, c, cat) in desk_apps().items():
+        if n not in seen: L.append({"id": k, "name": n, "cat": cat}); seen.add(n)
+    return L
 def nm(*a):
     try:
         return subprocess.run(["nmcli", *a], capture_output=True, text=True, timeout=40)
@@ -39,21 +69,27 @@ def xwids():
     except Exception: return set()
 class XApp:
     """Asli Linux app ko main screen par Smart OS ki window ki jagah par rakhta hai (window ke saath move/resize)."""
-    def __init__(s, app, x, y, w, h):
+    def __init__(s, cmd0, x, y, w, h):
         s.wid = None; s.shown = False
         before = xwids()
         sub = {"{W}": str(w), "{H}": str(h), "{COLS}": str(max(20, w // 8)), "{ROWS}": str(max(5, h // 17))}
         def fix(c):
             for k, v in sub.items(): c = c.replace(k, v)
             return c
-        cmd = [fix(c) for c in APPS[app][1]]
+        cmd = [fix(c) for c in cmd0]
         s.proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         for _ in range(150):
             time.sleep(0.1)
             if s.proc.poll() is not None: break
             new = xwids() - before
             if new: s.wid = sorted(new)[0]; break
-        if s.wid: s.geom(x, y, w, h, True)
+        if s.wid:
+            try:
+                env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
+                subprocess.run(["xprop", "-id", s.wid, "-f", "_MOTIF_WM_HINTS", "32c", "-set", "_MOTIF_WM_HINTS", "2, 0, 0, 0, 0"], env=env, timeout=5, capture_output=True)
+                subprocess.run(["wmctrl", "-ir", s.wid, "-b", "add,above"], env=env, timeout=5, capture_output=True)
+            except Exception: pass
+            s.geom(x, y, w, h, True)
     def alive(s): return s.proc.poll() is None and s.wid is not None
     def geom(s, x, y, w, h, show):
         if not s.wid: return
@@ -220,11 +256,11 @@ class H(http.server.SimpleHTTPRequestHandler):
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             return s.j({"ok": True})
         if s.path == "/api/x/open":
-            a = APPS.get(str(d.get("app", "")))
-            if not a or not shutil.which(a[1][0]) or not shutil.which("xdotool"): return s.j({"ok": False, "msg": "app ya xdotool nahi mila"}, 404)
+            a = app_lookup(str(d.get("app", "")))
+            if not a or not shutil.which("xdotool"): return s.j({"ok": False, "msg": "app ya xdotool nahi mila"}, 404)
             if len(XAPPS) >= 3: return s.j({"ok": False, "msg": "3 se zyada apps ek saath nahi (RAM)"}, 400)
             g = [int(d.get(k, 0)) for k in ("x", "y", "w", "h")]
-            xa = XApp(str(d["app"]), *g)
+            xa = XApp(a[1], *g)
             if not xa.wid: xa.close(); return s.j({"ok": False, "msg": "app ki window nahi bani"}, 500)
             xid = secrets.token_hex(8); XAPPS[xid] = xa
             return s.j({"ok": True, "id": xid})

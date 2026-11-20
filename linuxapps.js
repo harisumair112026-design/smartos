@@ -97,9 +97,15 @@ setTimeout(async function(){if(!window.smApps)return;
  var has=function(n){return window.smApps.some(function(x){return x[0]===n})};
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
- try{var L=await api('/api/apps');var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️'};
-  L.forEach(function(a){if(a.id==='xterm'||a.id==='terminal'||has(a.name))return;
-   window.smApps.push([a.name,IC[a.id]||'🐧','#f59e0b','#b45309','Linux',function(){openNativeApp(a.id,a.name,IC[a.id]||'🐧')}])})}catch(e){}
+ var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️',net:'🌐',media:'🎬',gfx:'🎨',dev:'🛠️',game:'🎮',sys:'⚙️',util:'🧰'};
+ window.__lx=window.__lx||{};
+ var sync=async function(){try{var L=await api('/api/apps');var names={};
+  L.forEach(function(a){if(a.id==='xterm'||a.id==='terminal')return;names[a.name]=1;
+   if(window.__lx[a.name]||has(a.name))return;window.__lx[a.name]=1;
+   window.smApps.push([a.name,IC[a.id]||IC[a.cat]||'🐧','#f59e0b','#b45309','Linux',function(){openNativeApp(a.id,a.name,IC[a.id]||IC[a.cat]||'🐧')}])});
+  Object.keys(window.__lx).forEach(function(n){if(!names[n]){delete window.__lx[n];for(var i=window.smApps.length-1;i>=0;i--)if(window.smApps[i][0]===n)window.smApps.splice(i,1)}});
+  window.smRender&&smRender()}catch(e){}};
+ await sync();setInterval(sync,20000);
  window.smRender&&smRender()},7400);
 // right-click baar baar na ho: 700ms ke andar dobara aaya contextmenu ignore
 (function(){var last=0;window.addEventListener('contextmenu',function(e){var n=Date.now();if(n-last<700){e.preventDefault();e.stopImmediatePropagation();return}last=n},true)})();
