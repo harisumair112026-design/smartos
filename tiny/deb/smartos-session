@@ -12,7 +12,16 @@ URL=http://127.0.0.1:8080/
 echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && URL=http://127.0.0.1:8080/install.html
 python3 /opt/smartos/helper.py >/dev/null 2>&1 &
 for i in $(seq 1 60); do (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null && break; sleep 0.5; done
+BASE=(--kiosk --no-first-run --no-default-browser-check --noerrdialogs --disable-infobars --user-data-dir=$HOME/.chrome --autoplay-policy=no-user-gesture-required --disable-features=Translate --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation)
+fails=0; EXTRA=()
 while true; do
-  google-chrome-stable --kiosk --no-first-run --no-default-browser-check --noerrdialogs --disable-infobars --user-data-dir=$HOME/.chrome --autoplay-policy=no-user-gesture-required --disable-features=Translate --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation $URL
+  t=$(date +%s)
+  google-chrome-stable "${BASE[@]}" "${EXTRA[@]}" $URL 2>>/tmp/chrome.log
+  if [ $(( $(date +%s) - t )) -lt 12 ]; then fails=$((fails+1)); else fails=0; fi
+  [ $fails -ge 2 ] && EXTRA=(--no-sandbox --disable-gpu-compositing --in-process-gpu --disable-software-rasterizer --disable-dev-shm-usage)
+  if [ $fails -ge 4 ]; then
+    xterm -geometry 120x36 -e bash -c 'echo "CHROME START NAHI HUA - ye screenshot bhejo"; echo; free -m; echo; tail -25 /tmp/chrome.log; echo; tail -12 ~/.local/share/xorg/Xorg.0.log 2>/dev/null; echo; echo "Enter dabao dobara try ke liye"; read'
+    fails=0; EXTRA=()
+  fi
   sleep 1
 done

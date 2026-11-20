@@ -91,7 +91,7 @@ printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVER
 chroot $R /bin/bash -c '
 useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >/dev/null; passwd -d smart >/dev/null
 echo "xrdb -merge ~/.Xresources; exec openbox-session" > /home/smart/.xinitrc
-echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && exec startx" > /home/smart/.bash_profile
+echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && { sudo -n plymouth quit 2>/dev/null; sleep 1; exec startx; }" > /home/smart/.bash_profile
 chown smart:smart /home/smart; chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile /home/smart/.Xresources
 systemctl enable NetworkManager smartos-debug.service smartos-zram.service
 systemctl mask apt-daily.timer apt-daily-upgrade.timer systemd-networkd-wait-online.service NetworkManager-wait-online.service
