@@ -1,0 +1,21 @@
+name: debapp
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  d:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build .deb from latest published update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          U=https://github.com/${{ github.repository }}/releases/download/updates/update.json
+          curl -sL $U -o m.json; N=$(python3 -c "import json;print(json.load(open('m.json'))['version'])")
+          curl -sL $(python3 -c "import json;print(json.load(open('m.json'))['url'])") -o u.tgz
+          mkdir x; tar xzf u.tgz -C x opt/smartos/index.html
+          bash tiny/debapp/pkg-app.sh 1.0.$N x/opt/smartos/index.html out
+          gh release upload deb-$N out/*.deb --clobber
+          ls -l out

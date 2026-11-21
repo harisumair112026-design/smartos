@@ -1,0 +1,14 @@
+#!/bin/bash
+# Smart OS ko poora desktop (launcher) ki tarah chalata hai - login screen se "Smart OS" session chuno
+export XDG_CURRENT_DESKTOP=SmartOS
+xsetroot -solid '#0b1020' 2>/dev/null
+command -v openbox >/dev/null && { openbox >/dev/null 2>&1 & sleep 1; }
+command -v nm-applet >/dev/null && nm-applet >/dev/null 2>&1 &
+python3 /opt/smartos/helper.py >/tmp/smartos-helper.log 2>&1 &
+for i in 1 2 3 4 5 6 7 8 9 10; do sleep 0.5; curl -s -o /dev/null --max-time 1 http://127.0.0.1:8080/ && break; done
+for b in google-chrome-stable google-chrome chromium chromium-browser; do command -v $b >/dev/null && B=$b && break; done
+while true; do
+  $B --class=SmartOSMain --user-data-dir="$HOME/.smartos-app" --no-first-run --no-default-browser-check --kiosk --noerrdialogs --app=http://127.0.0.1:8080/
+  # Chrome band ho to 3 sec baad dobara; session chhodna ho to Ctrl+Alt+Backspace ya Smart OS ke andar Power
+  sleep 3
+done
