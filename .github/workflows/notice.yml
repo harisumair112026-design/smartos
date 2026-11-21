@@ -1,0 +1,19 @@
+name: publish-notice
+on:
+  push:
+    paths: ["notice.json"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  n:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -c "import json;n=json.load(open('notice.json'));assert 'id' in n"
+          gh release view updates >/dev/null 2>&1 || gh release create updates -t "Smart OS updates" -n "Auto-update manifest" --latest=false
+          gh release upload updates notice.json --clobber

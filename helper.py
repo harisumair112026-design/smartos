@@ -90,6 +90,14 @@ def local_version():
 def fetch_manifest():
     r = urllib.request.urlopen(urllib.request.Request(UPD_URL, headers={"User-Agent": "SmartOS-Updater"}), timeout=12)
     m = json.loads(r.read(200000).decode("utf-8")); int(m["version"]); return m
+def fetch_notice():
+    u = UPD_URL.rsplit("/", 1)[0] + "/notice.json"
+    r = urllib.request.urlopen(urllib.request.Request(u, headers={"User-Agent": "SmartOS-Updater"}), timeout=10)
+    n = json.loads(r.read(60000).decode("utf-8"))
+    if not n.get("id") or not n.get("active", True): return {"ok": True, "none": True}
+    def https(x): x = str(x or ""); return x if x.startswith("https://") else ""
+    return {"ok": True, "id": str(n["id"])[:40], "title": str(n.get("title", ""))[:120], "text": str(n.get("text", ""))[:1500],
+            "image": https(n.get("image")), "button": str(n.get("button", ""))[:40], "url": https(n.get("url")), "live": bool(n.get("show_in_live", True))}
 def sudo_cmd(c):
     return c if (os.geteuid() == 0 or os.environ.get("SMARTOS_NOSUDO")) else ["sudo", "-n"] + c
 def upd_run(m):
@@ -291,6 +299,9 @@ class H(http.server.SimpleHTTPRequestHandler):
                 try: m = fetch_manifest()
                 except Exception as e: return s.j({"ok": False, "msg": "Internet ya server nahi mila", "current": local_version(), "live": is_live()})
                 return s.j({"ok": True, "current": local_version(), "latest": int(m["version"]), "available": int(m["version"]) > local_version(), "notes": str(m.get("notes", ""))[:500], "size": m.get("size", 0), "iso_url": str(m.get("iso_url", "")), "live": is_live()})
+            if u.path == "/api/notice":
+                try: return s.j(fetch_notice())
+                except Exception: return s.j({"ok": False})
             if u.path == "/api/update/status": return s.j({"app": UPD, "apt": APT})
             if u.path == "/api/pkg/list":
                 return s.j([{"key": k, "name": v[0], "mb": v[2], "desc": v[3], "installed": all(pkg_installed(p) for p in v[1]), "status": PKG_STATE.get(k, {}).get("status", ""), "msg": PKG_STATE.get(k, {}).get("msg", "")} for k, v in PKGS.items()])

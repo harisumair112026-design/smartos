@@ -147,6 +147,18 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
+ try{var nt=await api('/api/notice');var seen='';try{seen=localStorage.getItem('sm-notice')||''}catch(e){}
+  if(nt.ok&&!nt.none&&nt.id!==seen&&(nt.live!==false||true)){var o=document.createElement('div');o.style.cssText='position:fixed;inset:0;z-index:100000;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px';
+   var bx=document.createElement('div');bx.style.cssText='max-width:440px;width:100%;max-height:90vh;overflow:auto;background:#0f1a3a;color:#e2e8f5;border:1px solid #3b82f6;border-radius:16px;padding:20px;font:15px/1.5 system-ui;box-shadow:0 20px 60px #000a';
+   if(nt.image){var im=document.createElement('img');im.src=nt.image;im.style.cssText='width:100%;border-radius:10px;margin-bottom:12px';bx.appendChild(im)}
+   var h=document.createElement('div');h.style.cssText='font:700 20px system-ui;margin-bottom:8px';h.textContent=nt.title;bx.appendChild(h);
+   var t=document.createElement('div');t.style.cssText='white-space:pre-wrap;color:#c7d3ee';t.textContent=nt.text;bx.appendChild(t);
+   var row=document.createElement('div');row.style.cssText='margin-top:16px;display:flex;gap:10px;justify-content:flex-end';
+   var done=function(){try{localStorage.setItem('sm-notice',nt.id)}catch(e){}o.remove()};
+   var c=document.createElement('button');c.textContent='Band karo';c.style.cssText='background:none;color:#9fb0d6;border:1px solid #2a3a66;border-radius:9px;padding:8px 14px;cursor:pointer';c.onclick=done;row.appendChild(c);
+   if(nt.button&&nt.url){var g=document.createElement('button');g.textContent=nt.button;g.style.cssText='background:#3b82f6;color:#fff;border:0;border-radius:9px;padding:8px 16px;cursor:pointer';g.onclick=function(){done();if(window.openNativeApp)openNativeApp('chrome','Chrome','🌐');window.open(nt.url,'_blank')};row.appendChild(g)}
+   bx.appendChild(row);o.appendChild(bx);document.body.appendChild(o)}
+ }catch(e){}
  try{var inf=await api('/api/info');if(!inf.live){try{var uc=await api('/api/update/check');if(uc.ok&&uc.available&&!document.getElementById('sm-upd')){var bn=document.createElement('div');bn.id='sm-upd';bn.style.cssText='position:fixed;right:16px;bottom:64px;z-index:99999;background:#0f1a3a;color:#e2e8f5;border:1px solid #3b82f6;border-radius:12px;padding:12px 14px;font:14px system-ui;box-shadow:0 10px 30px #0008;display:flex;gap:10px;align-items:center';bn.innerHTML='<span>🔄 Smart OS update aaya hai</span><button style="background:#3b82f6;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer">Dekho</button><button style="background:none;color:#9fb0d6;border:0;cursor:pointer">✕</button>';bn.children[1].onclick=function(){bn.remove();openUpdate()};bn.children[2].onclick=function(){bn.remove()};document.body.appendChild(bn)}}catch(e){}}if(inf.live&&!has('Install Smart OS'))window.smApps.push(['Install Smart OS','💽','#22c55e','#15803d','System','openInstaller'])}catch(e){}
  var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️',net:'🌐',media:'🎬',gfx:'🎨',dev:'🛠️',game:'🎮',sys:'⚙️',util:'🧰'};
  window.__lx=window.__lx||{};
