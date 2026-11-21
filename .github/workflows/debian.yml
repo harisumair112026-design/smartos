@@ -141,3 +141,12 @@ jobs:
           gh release upload deb-$N out/smartos-update.tar.gz --clobber
           gh release view updates >/dev/null 2>&1 || gh release create updates -t "Smart OS updates" -n "Auto-update manifest" --latest=false
           gh release upload updates out/update.json --clobber
+      - name: Publish Debian app (.deb)
+        if: success()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          bash tiny/debapp/pkg-app.sh 1.0.$N out/index.html out/debapp
+          gh release upload deb-$N out/debapp/*.deb --clobber

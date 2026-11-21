@@ -1,0 +1,9 @@
+#!/bin/bash
+# Smart OS ko Debian/Ubuntu par app ki tarah chalata hai
+if ! curl -s -o /dev/null --max-time 1 http://127.0.0.1:8080/; then
+  nohup python3 /opt/smartos/helper.py >/tmp/smartos-helper.log 2>&1 &
+  for i in 1 2 3 4 5 6 7 8 9 10; do sleep 0.5; curl -s -o /dev/null --max-time 1 http://127.0.0.1:8080/ && break; done
+fi
+for b in google-chrome-stable google-chrome chromium chromium-browser; do command -v $b >/dev/null && B=$b && break; done
+[ -z "$B" ] && { echo "Chrome ya Chromium chahiye"; xmessage "Smart OS ko Chrome ya Chromium chahiye. Install karo: sudo apt install chromium" 2>/dev/null; exit 1; }
+exec $B --class=SmartOSMain --user-data-dir="$HOME/.smartos-app" --no-first-run --no-default-browser-check --start-fullscreen --app=http://127.0.0.1:8080/
