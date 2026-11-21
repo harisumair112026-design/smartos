@@ -12,14 +12,14 @@ button.g{background:#334155}button.r{background:#dc2626}#msg{margin-top:10px;min
 .pv{background:#0f1a3a;border:1px solid var(--ac);border-radius:14px;padding:16px}.pv img{width:100%;border-radius:10px;margin-bottom:10px}
 </style></head><body><div class="w">
 <h1>Smart OS Control</h1>
-<div class="c"><b>GitHub connect</b>
+<div class="c"><b>GitHub token (optional)</b><div style="color:var(--mut);font-size:13px">Token nahi dalna to chhod do. Neeche "Copy + GitHub kholo" button bina token ke chalta hai.</div>
 <label>Repo</label><input id="repo" value="harisumair112026-design/smartos">
 <label>Token (sirf is repo ka, Contents: Read &amp; write) &mdash; sirf is browser me save hota hai</label><input id="tok" type="password" placeholder="github_pat_...">
 <button class="g" id="sv">Save</button></div>
 <div class="c"><b>Notice / Offer screen</b>
 <label>Title</label><input id="ti"><label>Text</label><textarea id="tx"></textarea>
 <label>Image link (https, optional)</label><input id="im"><label>Button ka naam (optional)</label><input id="bn"><label>Button link (https)</label><input id="ur">
-<button id="pb">Publish (sab ko dikhao)</button><button class="r" id="off">Band karo</button><div id="msg"></div></div>
+<button id="pb">Publish (sab ko dikhao)</button><button class="g" id="cp">Copy + GitHub kholo (bina token)</button><button class="r" id="off">Band karo</button><div id="msg"></div><textarea id="out" hidden readonly style="min-height:70px;margin-top:8px"></textarea></div>
 <div class="c"><b>Preview</b><div class="pv" id="pv"></div></div>
 </div><script>
 const $=i=>document.getElementById(i),L=localStorage;
@@ -40,5 +40,11 @@ async function put(obj){const repo=$('repo').value.trim(),tok=$('tok').value.tri
  say('Ho gaya! Kuch minutes me users ko dikhega.','#4ade80')}catch(e){say('Error: '+e.message,'#f87171')}}
 $('pb').onclick=()=>{const o={id:'n'+Date.now(),active:true,title:$('ti').value.trim(),text:$('tx').value.trim(),image:$('im').value.trim(),button:$('bn').value.trim(),url:$('ur').value.trim()};
  if(!o.title)return say('Title likho','#f87171');if(!ok(o.image)||!ok(o.url))return say('Link https:// se shuru hona chahiye','#f87171');put(o)};
+function mk(){const o={id:'n'+Date.now(),active:true,title:$('ti').value.trim(),text:$('tx').value.trim(),image:$('im').value.trim(),button:$('bn').value.trim(),url:$('ur').value.trim()};return o}
+$('cp').onclick=async()=>{const o=mk();if(!o.title)return say('Title likho','#f87171');if(!ok(o.image)||!ok(o.url))return say('Link https:// se shuru hona chahiye','#f87171');
+ const t=JSON.stringify(o);try{await navigator.clipboard.writeText(t)}catch(e){prompt&&0}
+ $('out').value=t;$('out').hidden=false;$('out').select();
+ window.open('https://github.com/'+$('repo').value.trim()+'/edit/main/notice.json','_blank');
+ say('Copy ho gaya. GitHub me purana sab delete karke Paste karo, phir Commit changes dabao.','#4ade80')};
 $('off').onclick=()=>put({id:'off'+Date.now(),active:false,title:'',text:'',image:'',button:'',url:''});
 </script></body></html>
