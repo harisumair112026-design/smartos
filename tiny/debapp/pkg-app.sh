@@ -50,6 +50,14 @@ if [ "$1" = configure ]; then
     printf '[Seat:*]\nuser-session=smartos\n' > /etc/lightdm/lightdm.conf.d/50-smartos.conf
     printf '[greeter]\nbackground=/usr/share/backgrounds/smartos.png\n' > /etc/lightdm/lightdm-gtk-greeter.conf.d/50-smartos.conf
   fi
+  [ -f /etc/lightdm/lightdm-gtk-greeter.conf.d/50-smartos.conf ] && printf 'theme-name=Adwaita-dark\nfont-name=Sans 12\nuser-background=false\nposition=50%%,center\nindicators=~host;~spacer;~clock;~spacer;~session;~power\nclock-format=%%H:%%M  %%d %%b\n' >> /etc/lightdm/lightdm-gtk-greeter.conf.d/50-smartos.conf
+  # GDM3: login screen logo
+  if [ -d /etc/gdm3 ]; then
+    mkdir -p /etc/dconf/db/gdm.d /etc/dconf/profile
+    printf "[org/gnome/login-screen]\nlogo='/usr/share/pixmaps/smartos.png'\n" > /etc/dconf/db/gdm.d/50-smartos
+    [ -f /etc/dconf/profile/gdm ] || printf 'user-db:user\nsystem-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n' > /etc/dconf/profile/gdm
+    dconf update 2>/dev/null || true
+  fi
   # GDM3: har maujooda user ka default session
   if [ -d /var/lib/AccountsService/users ]; then
     for f in /var/lib/AccountsService/users/*; do
@@ -71,6 +79,7 @@ cat > $P/DEBIAN/prerm <<'D'
 #!/bin/sh
 set -e
 if [ "$1" = remove ] || [ "$1" = purge ]; then
+  rm -f /etc/dconf/db/gdm.d/50-smartos; dconf update 2>/dev/null || true
   rm -f /etc/lightdm/lightdm.conf.d/50-smartos.conf /etc/lightdm/lightdm-gtk-greeter.conf.d/50-smartos.conf /etc/sddm.conf.d/50-smartos.conf
   for f in /var/lib/AccountsService/users/*.smartos-bak; do
     [ -f "$f" ] && mv -f "$f" "${f%.smartos-bak}" || true

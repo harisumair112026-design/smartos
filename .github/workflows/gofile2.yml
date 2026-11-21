@@ -1,0 +1,47 @@
+name: gofile-all
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (deb-N)"
+        required: true
+jobs:
+  up:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Collect files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir pack && cd pack
+          for a in $(gh api repos/$GITHUB_REPOSITORY/releases/tags/${{ inputs.tag }} --jq '.assets[]|select(.name|test("iso$|sha256$|deb$"))|.id'); do
+            n=$(gh api repos/$GITHUB_REPOSITORY/releases/assets/$a --jq .name)
+            gh api -H "Accept: application/octet-stream" repos/$GITHUB_REPOSITORY/releases/assets/$a > "$n"
+          done
+          cp ../control/SmartOS-Control.html .
+          ls -l
+      - name: Upload all to one GoFile folder
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd pack
+          first=1
+          for f in *; do
+            if [ $first = 1 ]; then
+              curl -sS --retry 3 -F "file=@$f" https://upload.gofile.io/uploadfile > r.json
+              FID=$(python3 -c "import json;d=json.load(open('r.json'))['data'];print(d['parentFolder'])")
+              TOK=$(python3 -c "import json;d=json.load(open('r.json'))['data'];print(d.get('guestToken',''))")
+              PAGE=$(python3 -c "import json;print(json.load(open('r.json'))['data']['downloadPage'])")
+              first=0
+            else
+              curl -sS --retry 3 -F "file=@$f" -F "folderId=$FID" -F "token=$TOK" https://upload.gofile.io/uploadfile >/dev/null
+            fi
+          done
+          echo "$PAGE" > ../gofile-link.txt; cat ../gofile-link.txt
+          cd ..
+          gh release view gofile >/dev/null 2>&1 || gh release create gofile -t "gofile links" -n auto
+          gh release upload gofile gofile-link.txt --clobber

@@ -45,6 +45,24 @@ window.openAppStore=function(){
  R.addEventListener('click',async e=>{const b=e.target.closest('button[data-k]');if(!b)return;b.disabled=true;const r=await post('/api/pkg/install',{key:b.dataset.k});if(!r.ok)alert(r.msg||'error');draw()});
  draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}draw()},2500);
  return w};
+window.smLock=async function(){
+ if(document.getElementById('sm-lock'))return;
+ const H=async t=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode('smartos:'+t)))).map(b=>b.toString(16).padStart(2,'0')).join('');
+ let hp='';try{hp=localStorage.getItem('sm-pin')||''}catch(e){}
+ const o=document.createElement('div');o.id='sm-lock';
+ o.style.cssText='position:fixed;inset:0;z-index:2147483000;background:linear-gradient(160deg,#0b1020,#17275a);color:#e2e8f5;display:flex;flex-direction:column;align-items:center;justify-content:center;font:16px system-ui;text-align:center';
+ o.innerHTML='<div id="lk-t" style="font:700 72px system-ui"></div><div id="lk-d" style="color:#9fb0d6;margin-bottom:28px"></div><div id="lk-m" style="margin-bottom:10px;min-height:22px"></div><input id="lk-i" type="password" inputmode="numeric" autocomplete="off" style="font-size:20px;text-align:center;padding:10px;border-radius:12px;border:1px solid #3b82f6;background:#0f1a3a;color:#e2e8f5;width:220px"><button id="lk-b" style="margin-top:14px;background:#3b82f6;color:#fff;border:0;border-radius:10px;padding:10px 26px;font-size:16px;cursor:pointer"></button><div style="position:absolute;bottom:18px;color:#6b7aa8;font-size:13px">Smart OS - Smart Miner Hubs</div>';
+ document.body.appendChild(o);
+ const q=i=>o.querySelector(i),tick=()=>{const n=new Date();q('#lk-t').textContent=n.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});q('#lk-d').textContent=n.toLocaleDateString([], {weekday:'long',day:'numeric',month:'long'})};tick();const iv=setInterval(()=>{if(!o.isConnected)clearInterval(iv);else tick()},10000);
+ const i=q('#lk-i'),m=q('#lk-m'),b=q('#lk-b');
+ const fix=()=>{try{o.querySelectorAll('*');}catch(e){}};
+ if(!hp){m.textContent='Pehli baar: apna PIN set karo (kam se kam 4)';b.textContent='PIN set karo';
+  b.onclick=async()=>{if(i.value.length<4){m.textContent='PIN chhota hai';return}try{localStorage.setItem('sm-pin',await H(i.value))}catch(e){m.textContent='PIN save nahi hua';return}o.remove()};
+ }else{m.textContent='Locked';b.textContent='Unlock';
+  b.onclick=async()=>{if(await H(i.value)===hp){o.remove()}else{m.textContent='Galat PIN';i.value=''}}}
+ i.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')b.click()});i.focus();
+ o.addEventListener('contextmenu',e=>e.preventDefault())};
+window.openLock=function(){window.smLock()};
 window.openUpdate=function(){
  const w=createWindow('Update','🔄','<div class="up" style="padding:18px;font:14px/1.6 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',500,480);
  const R=w.querySelector('.up');let busy=false,ist=null;
@@ -144,6 +162,7 @@ setTimeout(async function(){if(!window.smApps)return;
  var has=function(n){return window.smApps.some(function(x){return x[0]===n})};
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
+ if(!has('Lock'))window.smApps.push(['Lock','🔒','#64748b','#334155','System','openLock']);
  if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
