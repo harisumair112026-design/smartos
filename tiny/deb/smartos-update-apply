@@ -1,0 +1,23 @@
+#!/bin/bash
+# Smart OS update lagata hai (root). Use: smartos-update-apply <update.tar.gz> <version>   (test ke liye DEST=/folder)
+set -u
+F="${1:-}"; V="${2:-}"; DEST="${DEST:-/}"; DEST="${DEST%/}/"
+L=${SMARTOS_UPDATE_LOG:-/run/smartos-update.log}; exec >>"$L" 2>&1
+echo "== update $V $(date -u +%FT%TZ)"
+[[ "$V" =~ ^[0-9]+$ ]] || { echo "bad version"; exit 1; }
+[ -f "$F" ] || { echo "file nahi mili"; exit 1; }
+LIST=$(tar -tzf "$F") || { echo "tar kharab"; exit 1; }
+echo "$LIST" | grep -qE '(^/|(^|/)\.\.(/|$))' && { echo "bura path"; exit 1; }
+BAD=$(echo "$LIST" | grep -vE '^(opt/smartos/|usr/local/bin/|etc/smartos-version$|opt/$|usr/$|usr/local/$|etc/$)' || true)
+[ -z "$BAD" ] || { echo "allowed nahi: $BAD"; exit 1; }
+echo "$LIST" | grep -qx 'etc/smartos-version' || { echo "version file nahi"; exit 1; }
+OLD=$(cat "${DEST}etc/smartos-version" 2>/dev/null || echo 0)
+BK="${DEST}var/lib/smartos/backup"; mkdir -p "$BK"
+(cd "$DEST" && tar -czf "$BK/before-$V-from-$OLD.tar.gz" $(ls -d opt/smartos usr/local/bin/smartos-* etc/smartos-version 2>/dev/null)) || true
+ls -t "$BK"/before-*.tar.gz 2>/dev/null | tail -n +4 | xargs -r rm -f
+tar -xzf "$F" -C "$DEST" --no-same-owner --no-same-permissions --touch 2>&1 || { echo "extract fail, rollback"; tar -xzf "$BK/before-$V-from-$OLD.tar.gz" -C "$DEST" 2>/dev/null; exit 1; }
+chmod 755 "${DEST}usr/local/bin/"smartos-* 2>/dev/null; chmod 644 "${DEST}opt/smartos/"* 2>/dev/null
+if ! python3 -c "import ast,sys;ast.parse(open(sys.argv[1]).read())" "${DEST}opt/smartos/helper.py"; then
+  echo "helper kharab, rollback"; tar -xzf "$BK/before-$V-from-$OLD.tar.gz" -C "$DEST"; exit 1
+fi
+echo "update ok: $OLD -> $V"

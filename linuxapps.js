@@ -45,6 +45,33 @@ window.openAppStore=function(){
  R.addEventListener('click',async e=>{const b=e.target.closest('button[data-k]');if(!b)return;b.disabled=true;const r=await post('/api/pkg/install',{key:b.dataset.k});if(!r.ok)alert(r.msg||'error');draw()});
  draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}draw()},2500);
  return w};
+window.openUpdate=function(){
+ const w=createWindow('Update','🔄','<div class="up" style="padding:18px;font:14px/1.6 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',500,480);
+ const R=w.querySelector('.up');let busy=false,ist=null;
+ const bar=(p)=>'<div style="height:12px;border-radius:7px;background:#121a33;overflow:hidden;margin:10px 0"><i style="display:block;height:100%;width:'+p+'%;background:linear-gradient(90deg,#3b82f6,#22d3ee)"></i></div>';
+ const btn=(id,t,c)=>'<button id="'+id+'" style="background:'+(c||'#3b82f6')+';color:#fff;border:0;border-radius:9px;padding:9px 16px;margin:4px 6px 4px 0;cursor:pointer">'+t+'</button>';
+ const draw=async()=>{if(busy||!w.isConnected)return;busy=true;try{
+  const c=await api('/api/update/check'),st=await api('/api/update/status');
+  let h='<div style="font:700 21px system-ui;margin-bottom:6px">Smart OS Update</div>';
+  h+='<div style="color:#9fb0d6">Abhi ka version: <b style="color:#e2e8f5">'+c.current+'</b>'+(c.ok?' &nbsp; Naya: <b style="color:#e2e8f5">'+c.latest+'</b>':'')+'</div>';
+  if(!c.ok)h+='<div style="margin:12px 0;color:#fbbf24">⚠ '+esc(c.msg||'Check nahi ho paya')+'</div>'+btn('uc','Dobara check karo');
+  else if(c.live)h+='<div style="margin:12px 0;color:#fbbf24">Live mode me update nahi lagta (restart par sab chala jata hai).'+(c.available?' Naya version aaya hai: naya ISO download karo ya Smart OS ko disk par install karo.':'')+'</div>'+btn('uc','Check karo');
+  else if(st.app.status==='running')h+='<div style="margin:12px 0">'+esc(st.app.msg)+'</div>'+bar(st.app.pct);
+  else if(st.app.status==='done')h+='<div style="margin:12px 0;color:#4ade80">✔ '+esc(st.app.msg)+'</div>'+btn('ur','Smart OS restart karo','#16a34a');
+  else if(c.available)h+='<div style="margin:12px 0"><b>Naya update mil gaya</b>'+(c.notes?'<div style="color:#9fb0d6">'+esc(c.notes)+'</div>':'')+(c.size?'<div style="color:#9fb0d6">Size ~'+Math.max(1,Math.round(c.size/1048576))+' MB</div>':'')+(st.app.status==='fail'?'<div style="color:#fca5a5">❌ '+esc(st.app.msg)+'</div>':'')+'</div>'+btn('ua','Update karo','#16a34a');
+  else h+='<div style="margin:12px 0;color:#4ade80">✔ Aap latest version par ho</div>'+btn('uc','Dobara check karo');
+  h+='<hr style="border:0;border-top:1px solid #1f2b4d;margin:16px 0"><div style="font-weight:600">Debian security updates</div><div style="color:#9fb0d6;margin-bottom:6px">System ke packages (Chrome, Firefox waghera) naye karta hai. Internet chahiye.</div>';
+  if(st.apt.status==='running')h+='<div style="color:#fbbf24">⏳ '+esc(st.apt.msg)+'</div>';
+  else{if(st.apt.status)h+='<div style="color:'+(st.apt.status==='done'?'#4ade80':'#fca5a5')+'">'+esc(st.apt.msg)+'</div>';h+=btn('up','Debian updates lagao','#6366f1')}
+  R.innerHTML=h;ist=st;
+  const on=(id,f)=>{const e=R.querySelector('#'+id);if(e)e.onclick=f};
+  on('uc',()=>{busy=false;draw()});
+  on('ua',async()=>{const r=await post('/api/update/apply',{});if(!r.ok)alert(r.msg||'error');busy=false;draw()});
+  on('ur',()=>{post('/api/update/restart',{});R.innerHTML='<div style="padding:20px">Smart OS dobara khul raha hai...</div>'});
+  on('up',async()=>{const r=await post('/api/update/apt',{});if(!r.ok)alert(r.msg||'error');busy=false;draw()});
+ }catch(e){R.textContent='⚠ Update sirf Smart OS ISO me chalta hai'}busy=false};
+ draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}if(ist&&(ist.app.status==='running'||ist.apt.status==='running'))draw()},2000);
+ return w};
 window.openInstaller=function(){
  return createWindow('Install Smart OS','💽','<iframe src="/install.html" style="width:100%;height:100%;border:0;background:#0b1020"></iframe>',720,640)};
 window.openNativeApp=function(id,name,icon){
@@ -117,9 +144,10 @@ setTimeout(async function(){if(!window.smApps)return;
  var has=function(n){return window.smApps.some(function(x){return x[0]===n})};
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
+ if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
- try{var inf=await api('/api/info');if(inf.live&&!has('Install Smart OS'))window.smApps.push(['Install Smart OS','💽','#22c55e','#15803d','System','openInstaller'])}catch(e){}
+ try{var inf=await api('/api/info');if(!inf.live){try{var uc=await api('/api/update/check');if(uc.ok&&uc.available&&!document.getElementById('sm-upd')){var bn=document.createElement('div');bn.id='sm-upd';bn.style.cssText='position:fixed;right:16px;bottom:64px;z-index:99999;background:#0f1a3a;color:#e2e8f5;border:1px solid #3b82f6;border-radius:12px;padding:12px 14px;font:14px system-ui;box-shadow:0 10px 30px #0008;display:flex;gap:10px;align-items:center';bn.innerHTML='<span>🔄 Smart OS update aaya hai</span><button style="background:#3b82f6;color:#fff;border:0;border-radius:8px;padding:6px 12px;cursor:pointer">Dekho</button><button style="background:none;color:#9fb0d6;border:0;cursor:pointer">✕</button>';bn.children[1].onclick=function(){bn.remove();openUpdate()};bn.children[2].onclick=function(){bn.remove()};document.body.appendChild(bn)}}catch(e){}}if(inf.live&&!has('Install Smart OS'))window.smApps.push(['Install Smart OS','💽','#22c55e','#15803d','System','openInstaller'])}catch(e){}
  var IC={chrome:'🧭',firefox:'🦊',files:'📂',editor:'📝',office:'📄',vlc:'🔶',settings:'🔧',software:'🛍️',net:'🌐',media:'🎬',gfx:'🎨',dev:'🛠️',game:'🎮',sys:'⚙️',util:'🧰'};
  window.__lx=window.__lx||{};
  var sync=async function(){try{var L=await api('/api/apps');var names={};

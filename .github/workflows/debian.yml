@@ -60,7 +60,7 @@ jobs:
           open('out/index.html','w',encoding='utf-8').write(s[:i]+lib+'<script>\n'+js+'</script>\n'+s[i:])
           PY
       - name: Rootfs (Debian)
-        run: sudo bash tiny/deb-rootfs.sh
+        run: sudo SMARTOS_BUILD=${{ github.run_number }} bash tiny/deb-rootfs.sh
       - name: ISO
         run: sudo bash tiny/make-iso.sh
       - name: Publish ISO
@@ -122,3 +122,21 @@ jobs:
           [ -s serial.log ] && cp serial.log "d${{ github.run_number }}-serial.txt" || true
           for f in shots/*serial.log; do [ -s "$f" ] && cp "$f" "d${{ github.run_number }}-$(basename $f).txt"; done
           gh release upload tinytest d${{ github.run_number }}-* --clobber
+      - name: Publish update (manifest)
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          N=${{ github.run_number }}
+          sudo tar --owner=0 --group=0 -czf out/smartos-update.tar.gz -C out/rootfs opt/smartos usr/local/bin/smartos-session usr/local/bin/smartos-install usr/local/bin/smartos-zram usr/local/bin/smartos-update-apply etc/smartos-version
+          SHA=$(sha256sum out/smartos-update.tar.gz | cut -d' ' -f1); SZ=$(stat -c %s out/smartos-update.tar.gz)
+          NOTES=$(git log -1 --pretty=%s | cut -c1-200)
+          python3 - "$N" "$SHA" "$SZ" "$NOTES" "$GITHUB_REPOSITORY" <<'PY'
+          import json,sys
+          n,sha,sz,notes,repo=sys.argv[1:6]
+          json.dump({"version":int(n),"url":f"https://github.com/{repo}/releases/download/deb-{n}/smartos-update.tar.gz","sha256":sha,"size":int(sz),"notes":notes,"iso_url":f"https://github.com/{repo}/releases/tag/deb-{n}"},open("out/update.json","w"))
+          PY
+          cat out/update.json
+          gh release upload deb-$N out/smartos-update.tar.gz --clobber
+          gh release view updates >/dev/null 2>&1 || gh release create updates -t "Smart OS updates" -n "Auto-update manifest" --latest=false
+          gh release upload updates out/update.json --clobber

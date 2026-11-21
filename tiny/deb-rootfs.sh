@@ -37,7 +37,8 @@ ls $R/lib/modules
 # Smart OS files
 mkdir -p $R/opt/smartos $R/usr/local/bin
 cp out/index.html $R/opt/smartos/index.html; cp helper.py $R/opt/smartos/helper.py
-cp tiny/deb/smartos-session tiny/deb/smartos-install $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-session $R/usr/local/bin/smartos-install
+cp tiny/deb/smartos-session tiny/deb/smartos-install tiny/deb/smartos-update-apply $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-session $R/usr/local/bin/smartos-install $R/usr/local/bin/smartos-update-apply
+echo "${SMARTOS_BUILD:-0}" > $R/etc/smartos-version
 cp tiny/deb/install.html $R/opt/smartos/install.html; cp branding/logo.png $R/opt/smartos/logo.png
 mkdir -p $R/etc/systemd/system/getty@tty1.service.d $R/etc/xdg/openbox
 cp tiny/deb/autologin.conf $R/etc/systemd/system/getty@tty1.service.d/autologin.conf

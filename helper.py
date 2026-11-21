@@ -79,6 +79,47 @@ def pkg_run(key):
         if r.returncode == 0: st.update(status="done", msg="Install ho gaya")
         else: st.update(status="fail", msg=((r.stderr or r.stdout).strip().splitlines() or ["error"])[-1][:200])
     except Exception as e: st.update(status="fail", msg=str(e)[:200])
+import urllib.request, hashlib
+UPD_URL = os.environ.get("SMARTOS_UPDATE_URL", "https://github.com/harisumair112026-design/smartos/releases/download/updates/update.json")
+UPD_PREFIX = os.environ.get("SMARTOS_UPDATE_PREFIX", "https://github.com/harisumair112026-design/smartos/releases/download/")
+UPD = {"status": "", "msg": "", "pct": 0}
+APT = {"status": "", "msg": ""}
+def local_version():
+    try: return int(open(os.environ.get("SMARTOS_VERSION_FILE", "/etc/smartos-version")).read().strip() or 0)
+    except Exception: return 0
+def fetch_manifest():
+    r = urllib.request.urlopen(urllib.request.Request(UPD_URL, headers={"User-Agent": "SmartOS-Updater"}), timeout=12)
+    m = json.loads(r.read(200000).decode("utf-8")); int(m["version"]); return m
+def sudo_cmd(c):
+    return c if (os.geteuid() == 0 or os.environ.get("SMARTOS_NOSUDO")) else ["sudo", "-n"] + c
+def upd_run(m):
+    try:
+        url = str(m["url"])
+        if not url.startswith(UPD_PREFIX): raise Exception("update ka link bharosemand nahi")
+        UPD.update(status="running", msg="Download ho raha hai...", pct=2)
+        dst = "/var/tmp/smartos-update.tar.gz" if not os.environ.get("SMARTOS_TMP") else os.environ["SMARTOS_TMP"]
+        h = hashlib.sha256(); got = 0
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "SmartOS-Updater"}), timeout=30) as r, open(dst, "wb") as f:
+            tot = int(r.headers.get("Content-Length") or m.get("size") or 0)
+            while True:
+                b = r.read(65536)
+                if not b: break
+                f.write(b); h.update(b); got += len(b)
+                if tot: UPD["pct"] = 2 + int(got * 80 / tot)
+                if got > 300 * 1048576: raise Exception("file bahut badi")
+        if h.hexdigest() != str(m.get("sha256", "")).lower(): raise Exception("download kharab (sha256 match nahi hua)")
+        UPD.update(msg="Install ho raha hai...", pct=88)
+        r = subprocess.run(sudo_cmd([os.environ.get("SMARTOS_APPLY", "/usr/local/bin/smartos-update-apply"), dst, str(int(m["version"]))]), capture_output=True, text=True, timeout=300)
+        if r.returncode != 0: raise Exception("update lagne me dikkat (purana version wapas rakha gaya)")
+        UPD.update(status="done", msg="Update ho gaya. Smart OS restart karo.", pct=100)
+    except Exception as e: UPD.update(status="fail", msg=str(e)[:200])
+def apt_run():
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    try:
+        subprocess.run(sudo_cmd(["apt-get", "update", "-qq"]), capture_output=True, env=env, timeout=300)
+        r = subprocess.run(sudo_cmd(["apt-get", "-y", "-o", "Dpkg::Options::=--force-confold", "upgrade"]), capture_output=True, text=True, env=env, timeout=3000)
+        APT.update(status="done" if r.returncode == 0 else "fail", msg="Debian updates lag gaye" if r.returncode == 0 else ((r.stderr or r.stdout).strip().splitlines() or ["error"])[-1][:200])
+    except Exception as e: APT.update(status="fail", msg=str(e)[:200])
 TERMS = {}
 GUIS = {}
 XAPPS = {}
@@ -245,7 +286,12 @@ class H(http.server.SimpleHTTPRequestHandler):
         if u.path.startswith("/api/"):
             if not s.authed(): return s.send_error(403)
             if u.path == "/api/apps": return s.j(installed())
-            if u.path == "/api/info": return s.j({"live": is_live()})
+            if u.path == "/api/info": return s.j({"live": is_live(), "version": local_version()})
+            if u.path == "/api/update/check":
+                try: m = fetch_manifest()
+                except Exception as e: return s.j({"ok": False, "msg": "Internet ya server nahi mila", "current": local_version(), "live": is_live()})
+                return s.j({"ok": True, "current": local_version(), "latest": int(m["version"]), "available": int(m["version"]) > local_version(), "notes": str(m.get("notes", ""))[:500], "size": m.get("size", 0), "iso_url": str(m.get("iso_url", "")), "live": is_live()})
+            if u.path == "/api/update/status": return s.j({"app": UPD, "apt": APT})
             if u.path == "/api/pkg/list":
                 return s.j([{"key": k, "name": v[0], "mb": v[2], "desc": v[3], "installed": all(pkg_installed(p) for p in v[1]), "status": PKG_STATE.get(k, {}).get("status", ""), "msg": PKG_STATE.get(k, {}).get("msg", "")} for k, v in PKGS.items()])
             if u.path == "/api/sysinfo":
@@ -295,6 +341,19 @@ class H(http.server.SimpleHTTPRequestHandler):
             except Exception: pass
             subprocess.Popen(["sudo", "-n", "/usr/local/bin/smartos-install", dev], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
             return s.j({"ok": True})
+        if s.path == "/api/update/apply":
+            if is_live() and not os.environ.get("SMARTOS_ALLOW_LIVE_UPDATE"): return s.j({"ok": False, "msg": "Live mode me update nahi lagta. Naya ISO download karo ya Smart OS ko disk par install karo."}, 400)
+            if UPD.get("status") == "running": return s.j({"ok": True})
+            try: m = fetch_manifest()
+            except Exception: return s.j({"ok": False, "msg": "Internet ya server nahi mila"}, 502)
+            if int(m["version"]) <= local_version(): return s.j({"ok": False, "msg": "Aap latest version par ho"}, 400)
+            threading.Thread(target=upd_run, args=(m,), daemon=True).start(); return s.j({"ok": True})
+        if s.path == "/api/update/apt":
+            if is_live(): return s.j({"ok": False, "msg": "Live mode me nahi. Disk par install karo."}, 400)
+            if APT.get("status") == "running": return s.j({"ok": True})
+            APT.update(status="running", msg="Debian updates lag rahe hain (internet chahiye)..."); threading.Thread(target=apt_run, daemon=True).start(); return s.j({"ok": True})
+        if s.path == "/api/update/restart":
+            subprocess.Popen(["sh", "-c", "sleep 1; " + ("pkill -x Xorg" if os.geteuid() == 0 else "sudo -n pkill -x Xorg")], start_new_session=True); return s.j({"ok": True})
         if s.path == "/api/pkg/install":
             k = str(d.get("key", ""))
             if k not in PKGS: return s.j({"ok": False, "msg": "galat app"}, 404)
