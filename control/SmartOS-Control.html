@@ -1,0 +1,44 @@
+<!doctype html><html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Smart OS Control</title>
+<style>
+:root{--bg:#0b1020;--card:#121a33;--fg:#e2e8f5;--mut:#9fb0d6;--ac:#3b82f6;--ln:#24305a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding:16px}
+.w{max-width:560px;margin:0 auto}h1{font-size:22px;margin:4px 0 14px}
+.c{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;color:var(--mut);font-size:13px;margin:10px 0 4px}
+input,textarea{width:100%;background:#0b1020;color:var(--fg);border:1px solid var(--ln);border-radius:9px;padding:9px;font:inherit}
+textarea{min-height:90px}button{background:var(--ac);color:#fff;border:0;border-radius:9px;padding:10px 16px;margin:12px 8px 0 0;cursor:pointer;font:inherit}
+button.g{background:#334155}button.r{background:#dc2626}#msg{margin-top:10px;min-height:22px}
+.pv{background:#0f1a3a;border:1px solid var(--ac);border-radius:14px;padding:16px}.pv img{width:100%;border-radius:10px;margin-bottom:10px}
+</style></head><body><div class="w">
+<h1>Smart OS Control</h1>
+<div class="c"><b>GitHub connect</b>
+<label>Repo</label><input id="repo" value="harisumair112026-design/smartos">
+<label>Token (sirf is repo ka, Contents: Read &amp; write) &mdash; sirf is browser me save hota hai</label><input id="tok" type="password" placeholder="github_pat_...">
+<button class="g" id="sv">Save</button></div>
+<div class="c"><b>Notice / Offer screen</b>
+<label>Title</label><input id="ti"><label>Text</label><textarea id="tx"></textarea>
+<label>Image link (https, optional)</label><input id="im"><label>Button ka naam (optional)</label><input id="bn"><label>Button link (https)</label><input id="ur">
+<button id="pb">Publish (sab ko dikhao)</button><button class="r" id="off">Band karo</button><div id="msg"></div></div>
+<div class="c"><b>Preview</b><div class="pv" id="pv"></div></div>
+</div><script>
+const $=i=>document.getElementById(i),L=localStorage;
+const ld=()=>{try{$('repo').value=L.getItem('r')||$('repo').value;$('tok').value=L.getItem('t')||''}catch(e){}};ld();
+$('sv').onclick=()=>{try{L.setItem('r',$('repo').value.trim());L.setItem('t',$('tok').value.trim());say('Save ho gaya','#4ade80')}catch(e){say('Save nahi hua','#f87171')}};
+const say=(t,c)=>{$('msg').textContent=t;$('msg').style.color=c||'inherit'};
+const ok=u=>!u||/^https:\/\//.test(u);
+function pv(){const p=$('pv');p.textContent='';if($('im').value&&ok($('im').value)){const i=document.createElement('img');i.src=$('im').value;p.appendChild(i)}
+const h=document.createElement('div');h.style.cssText='font:700 19px system-ui;margin-bottom:6px';h.textContent=$('ti').value||'Title';p.appendChild(h);
+const t=document.createElement('div');t.style.cssText='white-space:pre-wrap;color:#c7d3ee';t.textContent=$('tx').value||'Text yahan dikhega';p.appendChild(t);
+if($('bn').value){const b=document.createElement('button');b.textContent=$('bn').value;p.appendChild(b)}}
+['ti','tx','im','bn','ur'].forEach(i=>$(i).oninput=pv);pv();
+async function put(obj){const repo=$('repo').value.trim(),tok=$('tok').value.trim();if(!tok)return say('Pehle token daalo aur Save karo','#f87171');
+ const u='https://api.github.com/repos/'+repo+'/contents/notice.json',H={Authorization:'Bearer '+tok,Accept:'application/vnd.github+json'};
+ try{say('Bhej raha hoon...');let sha;const g=await fetch(u,{headers:H});if(g.ok)sha=(await g.json()).sha;else if(g.status!==404)throw new Error('GitHub '+g.status+' (token/repo check karo)');
+ const body={message:'notice '+obj.id,content:btoa(unescape(encodeURIComponent(JSON.stringify(obj)))),sha};
+ const r=await fetch(u,{method:'PUT',headers:H,body:JSON.stringify(body)});if(!r.ok)throw new Error('GitHub '+r.status+' (token me Contents write chahiye)');
+ say('Ho gaya! Kuch minutes me users ko dikhega.','#4ade80')}catch(e){say('Error: '+e.message,'#f87171')}}
+$('pb').onclick=()=>{const o={id:'n'+Date.now(),active:true,title:$('ti').value.trim(),text:$('tx').value.trim(),image:$('im').value.trim(),button:$('bn').value.trim(),url:$('ur').value.trim()};
+ if(!o.title)return say('Title likho','#f87171');if(!ok(o.image)||!ok(o.url))return say('Link https:// se shuru hona chahiye','#f87171');put(o)};
+$('off').onclick=()=>put({id:'off'+Date.now(),active:false,title:'',text:'',image:'',button:'',url:''});
+</script></body></html>
