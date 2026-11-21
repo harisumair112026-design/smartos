@@ -114,6 +114,7 @@ jobs:
           sudo chmod 644 ../shots/* || true
       - name: Publish test shots
         if: always()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
