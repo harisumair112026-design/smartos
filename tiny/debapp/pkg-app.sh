@@ -32,8 +32,8 @@ Package: smartos-app
 Version: $V
 Architecture: all
 Maintainer: Smart Miner Hubs <noreply@example.com>
-Depends: python3, curl, xdotool, wmctrl, x11-utils, xterm, google-chrome-stable | chromium | chromium-browser
-Recommends: openbox, pcmanfm, featherpad, network-manager-gnome
+Depends: python3, curl, openbox, xdotool, wmctrl, x11-utils, xterm, google-chrome-stable | chromium | chromium-browser
+Recommends: pcmanfm, featherpad, network-manager-gnome
 Section: x11
 Priority: optional
 Description: Smart OS desktop app
@@ -68,6 +68,12 @@ if [ "$1" = configure ]; then
       sed -i 's/^\[User\]/[User]\nXSession=smartos\nSession=smartos/' "$f"
     done
   fi
+  # GDM: Wayland band (Smart OS session X11 par chalta hai)
+  if [ -f /etc/gdm3/custom.conf ]; then
+    cp -n /etc/gdm3/custom.conf /etc/gdm3/custom.conf.smartos-bak 2>/dev/null || true
+    if grep -q '^#\?WaylandEnable' /etc/gdm3/custom.conf; then sed -i 's/^#\?WaylandEnable.*/WaylandEnable=false/' /etc/gdm3/custom.conf
+    else sed -i '0,/^\[daemon\]/s//[daemon]\nWaylandEnable=false/' /etc/gdm3/custom.conf; fi
+  fi
   # SDDM
   if command -v sddm >/dev/null 2>&1; then
     mkdir -p /etc/sddm.conf.d; printf '[General]\nSession=smartos.desktop\n' > /etc/sddm.conf.d/50-smartos.conf
@@ -79,6 +85,7 @@ cat > $P/DEBIAN/prerm <<'D'
 #!/bin/sh
 set -e
 if [ "$1" = remove ] || [ "$1" = purge ]; then
+  [ -f /etc/gdm3/custom.conf.smartos-bak ] && mv -f /etc/gdm3/custom.conf.smartos-bak /etc/gdm3/custom.conf || true
   rm -f /etc/dconf/db/gdm.d/50-smartos; dconf update 2>/dev/null || true
   rm -f /etc/lightdm/lightdm.conf.d/50-smartos.conf /etc/lightdm/lightdm-gtk-greeter.conf.d/50-smartos.conf /etc/sddm.conf.d/50-smartos.conf
   for f in /var/lib/AccountsService/users/*.smartos-bak; do
