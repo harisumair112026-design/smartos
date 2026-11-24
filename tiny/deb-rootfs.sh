@@ -22,7 +22,7 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "xdotool wmctrl x11-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
+for p in "xdotool wmctrl x11-utils" "dbus-x11 xfce4-session xfwm4 xfce4-panel xfdesktop4 xfce4-settings xfconf" "thunar xfce4-terminal xfce4-whiskermenu-plugin xfce4-notifyd xfce4-power-manager xfce4-screensaver xfce4-taskmanager" "network-manager-gnome adwaita-icon-theme arc-theme gvfs xdg-utils desktop-file-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
@@ -39,6 +39,27 @@ mkdir -p $R/opt/smartos $R/usr/local/bin
 cp out/index.html $R/opt/smartos/index.html; cp helper.py $R/opt/smartos/helper.py
 cp tiny/deb/smartos-session tiny/deb/smartos-install tiny/deb/smartos-update-apply $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-session $R/usr/local/bin/smartos-install $R/usr/local/bin/smartos-update-apply
 echo "${SMARTOS_BUILD:-0}" > $R/etc/smartos-version
+# ===== asli desktop (XFCE) =====
+cp tiny/desk/smartos-xsession tiny/desk/smartos-webapp tiny/desk/smartos-chrome $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-xsession $R/usr/local/bin/smartos-webapp $R/usr/local/bin/smartos-chrome
+mkdir -p $R/usr/share/backgrounds $R/usr/share/pixmaps $R/etc/xdg/xfce4/xfconf/xfce-perchannel-xml $R/etc/xdg/xfce4/panel $R/etc/xdg/xfce4/terminal
+cp tiny/splash/bg.png $R/usr/share/backgrounds/smartos.png; cp branding/logo.png $R/usr/share/pixmaps/smartos.png
+cp tiny/desk/apps/*.desktop $R/usr/share/applications/
+cp tiny/desk/xfce/*.xml $R/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
+cp tiny/desk/xfce-rc/whiskermenu-1.rc $R/etc/xdg/xfce4/panel/; cp tiny/desk/xfce-rc/terminalrc $R/etc/xdg/xfce4/terminal/
+[ -f $R/usr/share/applications/google-chrome.desktop ] && sed -i 's#^Exec=/usr/bin/google-chrome-stable#Exec=/usr/local/bin/smartos-chrome#' $R/usr/share/applications/google-chrome.desktop
+python3 - "$R" <<'PYN'
+import sys
+r=sys.argv[1]; js=open("linuxapps.js").read()
+page="""<!doctype html><html><head><meta charset="utf-8"><title>Smart OS</title><style>html,body{margin:0;height:100%;background:#0b1020}#root{height:100vh}</style></head><body><div id="root"></div><script>
+window.__native=1;window.smApps=[];
+window.createWindow=function(name,icon,html){document.title=name;var d=document.getElementById('root');d.innerHTML=html;return d};
+</script><script>"""+js+"""</script><script>
+(function(){var a=new URLSearchParams(location.search).get('app')||'update';
+var m={update:'openUpdate',store:'openAppStore',sysinfo:'openSysInfo',install:'openInstaller',wifi:'openLinuxApps'};
+setTimeout(function(){var f=window[m[a]];if(f)f();else document.body.textContent='App nahi mila: '+a},300)})();
+</script></body></html>"""
+open(r+"/opt/smartos/native.html","w").write(page)
+PYN
 cp tiny/deb/install.html $R/opt/smartos/install.html; cp branding/logo.png $R/opt/smartos/logo.png
 mkdir -p $R/etc/systemd/system/getty@tty1.service.d $R/etc/xdg/openbox
 cp tiny/deb/autologin.conf $R/etc/systemd/system/getty@tty1.service.d/autologin.conf
@@ -91,7 +112,7 @@ echo smartos > $R/etc/hostname; : > $R/etc/fstab
 printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVERSION_ID=1.0\nKERNEL_BRAND="Dios Kernel 1.1.1"\n' > $R/etc/os-release
 chroot $R /bin/bash -c '
 useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >/dev/null; passwd -d smart >/dev/null
-echo "xrdb -merge ~/.Xresources; exec openbox-session" > /home/smart/.xinitrc
+echo "xrdb -merge ~/.Xresources; exec /usr/local/bin/smartos-xsession" > /home/smart/.xinitrc
 echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && { sudo -n plymouth quit 2>/dev/null; sleep 1; exec startx; }" > /home/smart/.bash_profile
 chown smart:smart /home/smart; chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile /home/smart/.Xresources
 systemctl enable NetworkManager smartos-debug.service smartos-zram.service

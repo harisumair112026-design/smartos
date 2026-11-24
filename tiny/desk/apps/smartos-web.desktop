@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Smart OS Web Desktop
+Comment=Purana web desktop
+Exec=/usr/local/bin/smartos-webapp web 1200 760
+Icon=smartos
+Categories=System;
+Terminal=false

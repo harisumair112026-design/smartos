@@ -129,7 +129,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           N=${{ github.run_number }}
-          sudo tar --owner=0 --group=0 -czf out/smartos-update.tar.gz -C out/rootfs opt/smartos usr/local/bin/smartos-session usr/local/bin/smartos-install usr/local/bin/smartos-zram usr/local/bin/smartos-update-apply etc/smartos-version
+          sudo tar --owner=0 --group=0 -czf out/smartos-update.tar.gz -C out/rootfs opt/smartos usr/local/bin/smartos-session usr/local/bin/smartos-install usr/local/bin/smartos-zram usr/local/bin/smartos-update-apply usr/local/bin/smartos-xsession usr/local/bin/smartos-webapp usr/local/bin/smartos-chrome etc/smartos-version
           SHA=$(sha256sum out/smartos-update.tar.gz | cut -d' ' -f1); SZ=$(stat -c %s out/smartos-update.tar.gz)
           NOTES=$(git log -1 --pretty=%s | cut -c1-200)
           python3 - "$N" "$SHA" "$SZ" "$NOTES" "$GITHUB_REPOSITORY" <<'PY'

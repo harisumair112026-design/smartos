@@ -1,0 +1,20 @@
+#!/bin/bash
+# Smart OS asli desktop (XFCE) session
+xset s off; xset -dpms; xset s noblank
+export XCURSOR_THEME=DMZ-White XCURSOR_SIZE=24
+xsetroot -solid '#0b1020' -cursor_name left_ptr 2>/dev/null
+(amixer -q sset Master 80% unmute; amixer -q sset PCM 80% unmute; amixer -q sset Speaker 80% unmute) >/dev/null 2>&1
+CMD=$(cat /proc/cmdline)
+AI=$(echo "$CMD" | grep -o 'smartos.autoinstall=[^ ]*' | cut -d= -f2)
+if [ -n "$AI" ]; then   # CI test: bina poochhe install, phir band
+  sudo -n /usr/local/bin/smartos-install "$AI"; { echo "=== INSTALL RESULT"; cat /run/smartos-install.progress; tail -80 /run/smartos-install.log; } | sudo -n tee /dev/ttyS0 >/dev/null 2>&1; sleep 2; sudo -n systemctl poweroff; exit 0
+fi
+python3 /opt/smartos/helper.py >/dev/null 2>&1 &
+mkdir -p ~/Desktop
+if [ -d /mnt/ro ] || [ -d /mnt/iso ]; then   # live mode: Desktop par Install icon
+  cp /usr/share/applications/smartos-install.desktop ~/Desktop/ 2>/dev/null; chmod +x ~/Desktop/*.desktop 2>/dev/null
+fi
+# wallpaper (monitor ka naam alag ho sakta hai, isliye session ke baad set karte hain)
+( sleep 4; for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image); do xfconf-query -c xfce4-desktop -p "$p" -s /usr/share/backgrounds/smartos.png; done ) &
+echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && ( sleep 6; /usr/local/bin/smartos-webapp install 760 680 ) &
+exec startxfce4

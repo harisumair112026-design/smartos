@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=WiFi & Power
+Comment=WiFi, battery aur power
+Exec=/usr/local/bin/smartos-webapp wifi 720 560
+Icon=smartos
+Categories=System;Settings;
+Terminal=false

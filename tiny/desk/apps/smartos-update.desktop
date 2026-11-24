@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Smart OS Update
+Comment=Smart OS ko update karo
+Exec=/usr/local/bin/smartos-webapp update 520 560
+Icon=smartos
+Categories=System;Settings;
+Terminal=false

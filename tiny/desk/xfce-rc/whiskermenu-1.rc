@@ -1,0 +1,7 @@
+button-title=Smart OS
+button-icon=/usr/share/pixmaps/smartos.png
+show-button-title=true
+launcher-show-name=true
+category-icon-size=1
+menu-width=520
+menu-height=520

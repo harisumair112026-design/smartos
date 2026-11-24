@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Install Smart OS
+Comment=Smart OS ko disk par install karo
+Exec=/usr/local/bin/smartos-webapp install 760 680
+Icon=smartos
+Categories=System;
+Terminal=false

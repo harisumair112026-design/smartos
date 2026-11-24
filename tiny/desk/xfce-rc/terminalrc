@@ -1,0 +1,7 @@
+[Configuration]
+FontName=DejaVu Sans Mono 11
+ColorForeground=#e2e8f5
+ColorBackground=#0b1020
+ColorCursor=#22d3ee
+MiscDefaultGeometry=100x30
+ScrollingBar=TERMINAL_SCROLLBAR_NONE

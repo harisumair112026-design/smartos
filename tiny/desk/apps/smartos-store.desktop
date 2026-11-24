@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=App Store
+Comment=Linux apps install karo
+Exec=/usr/local/bin/smartos-webapp store 600 640
+Icon=smartos
+Categories=System;
+Terminal=false

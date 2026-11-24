@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=System Info
+Comment=Dios Kernel aur system ki jankari
+Exec=/usr/local/bin/smartos-webapp sysinfo 480 460
+Icon=smartos
+Categories=System;
+Terminal=false
