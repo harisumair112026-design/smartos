@@ -2,5 +2,6 @@
 # usage: smartos-webapp <update|store|sysinfo|install|wifi|web> [w] [h]  -> Smart OS ka web-app asli window me
 A=${1:-update}; W=${2:-560}; H=${3:-640}
 for i in $(seq 1 40); do (echo > /dev/tcp/127.0.0.1/8080) 2>/dev/null && break; sleep 0.5; done
-URL="http://127.0.0.1:8080/native.html?app=$A"; [ $A = web ] && URL="http://127.0.0.1:8080/"
-exec google-chrome-stable --class=SmartApp --user-data-dir=$HOME/.chrome-app --app="$URL" --window-size=$W,$H --no-first-run --no-default-browser-check --noerrdialogs --disable-features=Translate --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation 2>>/tmp/chrome-app.log
+URL="http://127.0.0.1:8080/native.html?app=$A"; CLS=SmartApp; SZ="--window-size=$W,$H"
+if [ $A = web ]; then URL="http://127.0.0.1:8080/"; CLS=SmartOSMain; SZ="--start-maximized"; fi
+exec google-chrome-stable --class=$CLS --user-data-dir=$HOME/.chrome-app --app="$URL" $SZ --no-first-run --no-default-browser-check --noerrdialogs --disable-features=Translate --disable-gpu --enable-unsafe-swiftshader --enable-low-end-device-mode --renderer-process-limit=1 --js-flags=--max-old-space-size=256 --disk-cache-size=1 --disable-geolocation 2>>/tmp/chrome-app.log

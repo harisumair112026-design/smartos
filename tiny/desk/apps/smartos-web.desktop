@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=Smart OS Web Desktop
-Comment=Purana web desktop
-Exec=/usr/local/bin/smartos-webapp web 1200 760
+Name=Smart OS
+Comment=Smart OS launcher: saare Smart OS features aur apps
+Exec=/usr/local/bin/smartos-webapp web
 Icon=smartos
-Categories=System;
+Categories=System;Utility;
 Terminal=false

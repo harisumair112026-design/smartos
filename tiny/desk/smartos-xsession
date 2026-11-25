@@ -11,6 +11,7 @@ if [ -n "$AI" ]; then   # CI test: bina poochhe install, phir band
 fi
 python3 /opt/smartos/helper.py >/dev/null 2>&1 &
 mkdir -p ~/Desktop
+cp /usr/share/applications/smartos-web.desktop ~/Desktop/ 2>/dev/null; chmod +x ~/Desktop/*.desktop 2>/dev/null
 if [ -d /mnt/ro ] || [ -d /mnt/iso ]; then   # live mode: Desktop par Install icon
   cp /usr/share/applications/smartos-install.desktop ~/Desktop/ 2>/dev/null; chmod +x ~/Desktop/*.desktop 2>/dev/null
 fi

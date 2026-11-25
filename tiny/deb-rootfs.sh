@@ -44,6 +44,7 @@ cp tiny/desk/smartos-xsession tiny/desk/smartos-webapp tiny/desk/smartos-chrome 
 mkdir -p $R/usr/share/backgrounds $R/usr/share/pixmaps $R/etc/xdg/xfce4/xfconf/xfce-perchannel-xml $R/etc/xdg/xfce4/panel $R/etc/xdg/xfce4/terminal
 cp tiny/splash/bg.png $R/usr/share/backgrounds/smartos.png; cp branding/logo.png $R/usr/share/pixmaps/smartos.png
 cp tiny/desk/apps/*.desktop $R/usr/share/applications/
+mkdir -p $R/etc/xdg/xfce4/panel/launcher-7; cp tiny/desk/apps/smartos-web.desktop $R/etc/xdg/xfce4/panel/launcher-7/
 cp tiny/desk/xfce/*.xml $R/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/
 cp tiny/desk/xfce-rc/whiskermenu-1.rc $R/etc/xdg/xfce4/panel/; cp tiny/desk/xfce-rc/terminalrc $R/etc/xdg/xfce4/terminal/
 [ -f $R/usr/share/applications/google-chrome.desktop ] && sed -i 's#^Exec=/usr/bin/google-chrome-stable#Exec=/usr/local/bin/smartos-chrome#' $R/usr/share/applications/google-chrome.desktop

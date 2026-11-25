@@ -1,0 +1,36 @@
+name: overlay-xfwm4
+on: workflow_dispatch
+jobs:
+  t:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends xvfb xfwm4 xdotool wmctrl xterm imagemagick >/dev/null; which google-chrome || true
+      - name: Overlay test
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/root shots; echo '<body style="margin:0;background:#1d4ed8;color:#fff;font:60px sans-serif"><h1>SMART OS KIOSK PAGE</h1><p>neeche xterm overlay hona chahiye</p></body>' > /tmp/root/index.html
+          export DISPLAY=:99
+          Xvfb :99 -screen 0 1280x720x24 &
+          sleep 2
+          xfwm4 --compositor=off >/dev/null 2>&1 & sleep 3
+          google-chrome --class=SmartOSMain --app=file:///tmp/root/index.html --start-maximized --no-sandbox --user-data-dir=/tmp/kc --no-first-run --disable-gpu >/dev/null 2>&1 &
+          sleep 8
+          wmctrl -l; KW=$(wmctrl -l | grep -i -E "chrome|SMART" | head -1 | awk '{print $1}'); echo kiosk=$KW
+          SMARTOS_ROOT=/tmp/root SMARTOS_PORT=8097 python3 helper.py & sleep 2
+          H="Host: 127.0.0.1:8097"
+          T=$(curl -s -H "$H" http://127.0.0.1:8097/api/token | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+          api(){ curl -s -H "$H" -H "X-Token: $T" -X POST -d "$2" http://127.0.0.1:8097/api/x/$1; echo; }
+          R=$(api open '{"app":"xterm","x":200,"y":200,"w":700,"h":400}'); echo "$R"
+          ID=$(echo "$R" | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+          sleep 2; import -window root shots/ov-A-open.png
+          xdotool mousemove 60 60 click 1; sleep 1; import -window root shots/ov-B-after-kiosk-click.png
+          api geom "{\"id\":\"$ID\",\"x\":200,\"y\":200,\"w\":700,\"h\":400,\"show\":true}"; sleep 1; import -window root shots/ov-C-after-raise.png
+          api geom "{\"id\":\"$ID\",\"x\":300,\"y\":250,\"w\":500,\"h\":300,\"show\":true}"; sleep 1; import -window root shots/ov-D-moved.png
+          api geom "{\"id\":\"$ID\",\"x\":0,\"y\":0,\"w\":10,\"h\":10,\"show\":false}"; sleep 1; import -window root shots/ov-E-hidden.png
+          api close "{\"id\":\"$ID\"}"; sleep 1; wmctrl -l
+          cd shots; for f in *; do mv "$f" "ox-$f"; f=${f}; done; for f in *; do  gh release upload bootshot "$f" --clobber -R $GITHUB_REPOSITORY; done
