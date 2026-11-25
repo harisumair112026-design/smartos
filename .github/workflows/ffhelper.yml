@@ -1,0 +1,32 @@
+name: ffhelper
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  w:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile
+        shell: powershell
+        run: |
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $csc /nologo /target:winexe /out:FFHelper.exe /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll ffhelper\FFHelper.cs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          Get-Item FFHelper.exe | Select-Object Name,Length
+      - name: Selftest
+        shell: powershell
+        run: |
+          $p = Start-Process -FilePath .\FFHelper.exe -ArgumentList "--selftest" -PassThru -Wait -RedirectStandardOutput st.txt
+          Get-Content st.txt
+          "exit=$($p.ExitCode)"
+      - name: Publish
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release view ffhelper >/dev/null 2>&1 || gh release create ffhelper -t "Free Fire Helper" -n auto --latest=false
+          gh release upload ffhelper FFHelper.exe --clobber
+          sha256sum FFHelper.exe
