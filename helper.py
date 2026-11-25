@@ -160,6 +160,11 @@ class XApp:
                 env = dict(os.environ, DISPLAY=os.environ.get("DISPLAY", ":0"))
                 subprocess.run(["xprop", "-id", s.wid, "-f", "_MOTIF_WM_HINTS", "32c", "-set", "_MOTIF_WM_HINTS", "2, 0, 0, 0, 0"], env=env, timeout=5, capture_output=True)
                 subprocess.run(["wmctrl", "-ir", s.wid, "-b", "add,above"], env=env, timeout=5, capture_output=True)
+                wm = subprocess.run(["wmctrl", "-m"], env=env, timeout=5, capture_output=True, text=True).stdout.lower()
+                if "xfwm" in wm:   # xfwm4 motif hints nahi manta: splash type se bina title-bar window milti hai
+                    subprocess.run(["xprop", "-id", s.wid, "-f", "_NET_WM_WINDOW_TYPE", "32a", "-set", "_NET_WM_WINDOW_TYPE", "_NET_WM_WINDOW_TYPE_SPLASH"], env=env, timeout=5, capture_output=True)
+                    xdo("windowunmap", s.wid); time.sleep(0.2); xdo("windowmap", s.wid)
+                    subprocess.run(["wmctrl", "-ir", s.wid, "-b", "add,above"], env=env, timeout=5, capture_output=True)
             except Exception: pass
             s.geom(x, y, w, h, True)
     def alive(s): return s.proc.poll() is None and s.wid is not None
