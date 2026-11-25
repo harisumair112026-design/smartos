@@ -22,7 +22,7 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "xdotool wmctrl x11-utils" "dbus-x11 xfce4-session xfwm4 xfce4-panel xfdesktop4 xfce4-settings xfconf" "thunar xfce4-terminal xfce4-whiskermenu-plugin xfce4-notifyd xfce4-power-manager xfce4-screensaver xfce4-taskmanager" "network-manager-gnome adwaita-icon-theme arc-theme gvfs xdg-utils desktop-file-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
+for p in "xdotool wmctrl x11-utils" "dbus-x11 xfce4-session openbox xfwm4 xfce4-panel xfdesktop4 xfce4-settings xfconf" "thunar xfce4-terminal xfce4-whiskermenu-plugin xfce4-notifyd xfce4-power-manager xfce4-screensaver xfce4-taskmanager" "network-manager-gnome adwaita-icon-theme arc-theme gvfs xdg-utils desktop-file-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
@@ -75,6 +75,7 @@ if os.path.exists(p):
     s=open(p).read()
     s=re.sub(r"<applications>.*?</applications>","",s,flags=re.S)
     s=s.replace("</openbox_config>","<applications><application class=\"XTerm\"><layer>above</layer><focus>yes</focus></application><application class=\"SmartApp\"><layer>above</layer><focus>yes</focus><decor>no</decor></application></applications>\n</openbox_config>")
+    s=re.sub(r"(<theme>\s*<name>)[^<]*(</name>)",r"\1Arc-Dark\2",s,count=1)
     open(p,"w").write(s)
 PY
 mkdir -p $R/home/smart
