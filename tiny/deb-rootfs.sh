@@ -29,7 +29,7 @@ done
 chroot $R dpkg -l | grep -E "^ii +(plymouth|pcmanfm|featherpad|firefox-esr|xdotool|wmctrl|grub2-common|grub-pc-bin|grub-efi-amd64-bin|dosfstools|fdisk) " | awk '{print "installed:",$2}' 
 rm -f $R/boot/initrd.img-* $R/boot/vmlinuz-* 2>/dev/null || true
 mkdir -p $R/usr/share/plymouth/themes/smartos $R/etc/plymouth
-cp tiny/splash/smartos.plymouth tiny/splash/smartos.script tiny/splash/logo.png $R/usr/share/plymouth/themes/smartos/
+cp tiny/splash/smartos.plymouth tiny/splash/smartos.script tiny/splash/logo.png tiny/splash/dot.png $R/usr/share/plymouth/themes/smartos/
 printf '[Daemon]\nTheme=smartos\nShowDelay=0\n' > $R/etc/plymouth/plymouthd.conf
 # apna kernel ke modules
 cp -a out/modroot/lib/modules $R/lib/
@@ -115,7 +115,7 @@ printf 'NAME="Smart OS"\nPRETTY_NAME="Smart OS"\nID=smartos\nID_LIKE=debian\nVER
 chroot $R /bin/bash -c '
 useradd -m -s /bin/bash -G audio,video,input,netdev,sudo smart; passwd -d root >/dev/null; passwd -d smart >/dev/null
 echo "xrdb -merge ~/.Xresources; exec /usr/local/bin/smartos-xsession" > /home/smart/.xinitrc
-echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && { sudo -n plymouth quit 2>/dev/null; sleep 1; exec startx; }" > /home/smart/.bash_profile
+echo "[ -z \"\$DISPLAY\" ] && [ \"\$(tty)\" = /dev/tty1 ] && { sudo -n plymouth quit --retain-splash 2>/dev/null; exec startx; }" > /home/smart/.bash_profile
 chown smart:smart /home/smart; chown smart:smart /home/smart/.xinitrc /home/smart/.bash_profile /home/smart/.Xresources
 systemctl enable NetworkManager smartos-debug.service smartos-zram.service
 systemctl mask apt-daily.timer apt-daily-upgrade.timer systemd-networkd-wait-online.service NetworkManager-wait-online.service

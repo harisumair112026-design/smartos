@@ -4,14 +4,33 @@ W = Window.GetWidth(); H = Window.GetHeight();
 logo = Image("logo.png");
 ls = Sprite(logo);
 ls.SetX(W/2 - logo.GetWidth()/2);
-ls.SetY(H/2 - logo.GetHeight()/2 - 30);
-title = Image.Text("Smart OS", 0.89, 0.91, 0.96, 1, "Sans Bold 22");
+ls.SetY(H/2 - logo.GetHeight()/2 - 50);
+title = Image.Text("Smart OS", 0.89, 0.91, 0.96, 1, "Sans Bold 24");
 ts = Sprite(title);
 ts.SetX(W/2 - title.GetWidth()/2);
-ts.SetY(H/2 + logo.GetHeight()/2 - 10);
+ts.SetY(H/2 + logo.GetHeight()/2 - 30);
+brand = Image.Text("by Smart Miner Hubs", 0.55, 0.62, 0.78, 1, "Sans 11");
+bs = Sprite(brand);
+bs.SetX(W/2 - brand.GetWidth()/2);
+bs.SetY(H - 60);
+dotimg = Image("dot.png");
+N = 12;
+cx = W/2; cy = H/2 + logo.GetHeight()/2 + 70; R = 26;
+for (i = 0; i < N; i++) {
+  dots[i] = Sprite(dotimg);
+  a = i * 6.2831853 / N;
+  dots[i].SetX(cx + R * Math.Sin(a) - dotimg.GetWidth()/2);
+  dots[i].SetY(cy - R * Math.Cos(a) - dotimg.GetHeight()/2);
+  dots[i].SetOpacity(0.15);
+}
 frame = 0;
 fun refresh() {
   frame++;
-  ls.SetOpacity(0.78 + 0.22 * Math.Sin(frame / 12.0));
+  step = Math.Int(frame / 3);
+  for (i = 0; i < N; i++) {
+    phase = (step + N - i) % N;
+    dots[i].SetOpacity(1.0 - phase / N * 0.9);
+  }
+  ls.SetOpacity(0.85 + 0.15 * Math.Sin(frame / 14.0));
 }
 Plymouth.SetRefreshFunction(refresh);

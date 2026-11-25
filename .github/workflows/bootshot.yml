@@ -36,6 +36,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           gh release view bootshot >/dev/null 2>&1 || gh release create bootshot -t bootshot -n auto --latest=false
-          cd shots; for f in s6 s12 s18; do [ -f $f.png ] && cp $f.png ../bs-$f.png; done; cd ..
+          cd shots; for f in s1 s2 s3 s4 s6 s12 s18; do [ -f $f.png ] && cp $f.png ../bs-$f.png; done; cd ..
           [ -s serial.log ] && tail -c 4000 serial.log > bs-serial.txt || true
           gh release upload bootshot bs-* --clobber
