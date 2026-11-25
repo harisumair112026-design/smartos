@@ -119,6 +119,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view tinytest >/dev/null 2>&1 || gh release create tinytest -t "tiny test shots" -n auto
+          gh api --paginate repos/$GITHUB_REPOSITORY/releases/tags/tinytest --jq '.assets[].id' | xargs -P 8 -I{} gh api -X DELETE repos/$GITHUB_REPOSITORY/releases/assets/{} >/dev/null 2>&1 || true
           for f in shots/*.png; do cp "$f" "d${{ github.run_number }}-$(basename $f)"; done
           [ -s serial.log ] && cp serial.log "d${{ github.run_number }}-serial.txt" || true
           for f in shots/*serial.log; do [ -s "$f" ] && cp "$f" "d${{ github.run_number }}-$(basename $f).txt"; done
