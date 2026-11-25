@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Smart OS Shell (Android jaisa)
+Comment=Smart OS ko poora screen shell banao
+Exec=/usr/local/bin/smartos-mode shell
+Icon=smartos
+Categories=System;Settings;
+Terminal=false

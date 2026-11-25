@@ -40,7 +40,7 @@ cp out/index.html $R/opt/smartos/index.html; cp helper.py $R/opt/smartos/helper.
 cp tiny/deb/smartos-session tiny/deb/smartos-install tiny/deb/smartos-update-apply $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-session $R/usr/local/bin/smartos-install $R/usr/local/bin/smartos-update-apply
 echo "${SMARTOS_BUILD:-0}" > $R/etc/smartos-version
 # ===== asli desktop (XFCE) =====
-cp tiny/desk/smartos-xsession tiny/desk/smartos-webapp tiny/desk/smartos-chrome $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-xsession $R/usr/local/bin/smartos-webapp $R/usr/local/bin/smartos-chrome
+cp tiny/desk/smartos-xsession tiny/desk/smartos-webapp tiny/desk/smartos-chrome tiny/desk/smartos-mode $R/usr/local/bin/; chmod 755 $R/usr/local/bin/smartos-mode $R/usr/local/bin/smartos-xsession $R/usr/local/bin/smartos-webapp $R/usr/local/bin/smartos-chrome
 mkdir -p $R/usr/share/backgrounds $R/usr/share/pixmaps $R/etc/xdg/xfce4/xfconf/xfce-perchannel-xml $R/etc/xdg/xfce4/panel $R/etc/xdg/xfce4/terminal
 cp tiny/splash/bg.png $R/usr/share/backgrounds/smartos.png; cp branding/logo.png $R/usr/share/pixmaps/smartos.png
 cp tiny/desk/apps/*.desktop $R/usr/share/applications/

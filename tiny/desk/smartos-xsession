@@ -26,4 +26,8 @@ fi
     done
   done ) &
 echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && ( sleep 6; /usr/local/bin/smartos-webapp install 760 680 ) &
-exec startxfce4
+if [ -f "$HOME/.smartos-classic" ]; then exec startxfce4; fi
+# Android jaisa: Smart OS khud shell hai, Linux/XFCE nazar nahi aata
+openbox --sm-disable >/dev/null 2>&1 &
+sleep 1
+exec /usr/local/bin/smartos-session

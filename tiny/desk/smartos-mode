@@ -1,0 +1,8 @@
+#!/bin/bash
+# usage: smartos-mode shell|classic  -> mode badal kar session dobara shuru
+case "$1" in
+  classic) touch "$HOME/.smartos-classic";;
+  shell) rm -f "$HOME/.smartos-classic";;
+  *) echo "usage: smartos-mode shell|classic"; exit 1;;
+esac
+sleep 1; pkill -x Xorg

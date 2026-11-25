@@ -96,6 +96,7 @@ window.openHardware=function(){
  }catch(e){R.textContent='⚠ Hardware service chal nahi rahi'}busy=false};
  draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}api('/api/hw/status').then(s=>{if(s.status==='running')draw()}).catch(()=>{})},3000);
  return w};
+window.openClassic=function(){if(!confirm('Classic desktop (XFCE) par jana hai? Screen dobara shuru hogi.'))return;post('/api/session/mode',{mode:'classic'})};
 window.openUpdate=function(){
  const w=createWindow('Update','🔄','<div class="up" style="padding:18px;font:14px/1.6 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',500,480);
  const R=w.querySelector('.up');let busy=false,ist=null;
@@ -197,6 +198,7 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
  if(!has('Lock'))window.smApps.push(['Lock','🔒','#64748b','#334155','System','openLock']);
  if(!has('Hardware'))window.smApps.push(['Hardware','🧩','#10b981','#047857','System','openHardware']);
+ if(!has('Classic Desktop'))window.smApps.push(['Classic Desktop','🖥️','#475569','#1e293b','System','openClassic']);
  if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
