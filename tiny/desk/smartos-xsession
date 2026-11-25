@@ -14,7 +14,15 @@ mkdir -p ~/Desktop
 if [ -d /mnt/ro ] || [ -d /mnt/iso ]; then   # live mode: Desktop par Install icon
   cp /usr/share/applications/smartos-install.desktop ~/Desktop/ 2>/dev/null; chmod +x ~/Desktop/*.desktop 2>/dev/null
 fi
-# wallpaper (monitor ka naam alag ho sakta hai, isliye session ke baad set karte hain)
-( sleep 4; for p in $(xfconf-query -c xfce4-desktop -l 2>/dev/null | grep last-image); do xfconf-query -c xfce4-desktop -p "$p" -s /usr/share/backgrounds/smartos.png; done ) &
+# wallpaper (monitor ka naam alag ho sakta hai, isliye session ke baad sab naamon par set karte hain)
+( for t in 1 2 3; do sleep 3
+    for m in $(xrandr --listmonitors 2>/dev/null | awk 'NR>1{print $NF}') 0; do
+      for k in "monitor$m" "monitor0"; do
+        P=/backdrop/screen0/$k/workspace0
+        xfconf-query -c xfce4-desktop -p $P/last-image -n -t string -s /usr/share/backgrounds/smartos.png 2>/dev/null
+        xfconf-query -c xfce4-desktop -p $P/image-style -n -t int -s 5 2>/dev/null
+      done
+    done
+  done ) &
 echo "$CMD" | grep -qE '(^| )smartos\.install( |$)' && ( sleep 6; /usr/local/bin/smartos-webapp install 760 680 ) &
 exec startxfce4
