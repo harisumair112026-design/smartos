@@ -33,6 +33,7 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           gh release view bootshot >/dev/null 2>&1 || gh release create bootshot -t bootshot -n auto --latest=false
           cd shots; for f in s6 s12 s18; do [ -f $f.png ] && cp $f.png ../bs-$f.png; done; cd ..
