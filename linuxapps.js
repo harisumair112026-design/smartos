@@ -63,6 +63,39 @@ window.smLock=async function(){
  i.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')b.click()});i.focus();
  o.addEventListener('contextmenu',e=>e.preventDefault())};
 window.openLock=function(){window.smLock()};
+window.openHardware=function(){
+ const w=createWindow('Hardware','🧩','<div class="hw" style="padding:16px;font:14px/1.55 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳ Hardware dhoondh raha hoon...</div>',560,600);
+ const R=w.querySelector('.hw');let busy=false;
+ const card=(t,items)=>'<div style="background:#121a33;border:1px solid #24305a;border-radius:12px;padding:12px;margin:10px 0"><b>'+t+'</b>'+items+'</div>';
+ const b=(id,t,c)=>'<button data-k="'+id+'" style="background:'+(c||'#3b82f6')+';color:#fff;border:0;border-radius:9px;padding:8px 14px;margin:8px 8px 0 0;cursor:pointer">'+t+'</button>';
+ const draw=async()=>{if(busy||!w.isConnected)return;busy=true;try{
+  const h=await api('/api/hw/scan'),st=await api('/api/hw/status');
+  let o='<div style="font:700 20px system-ui">Hardware Service</div><div style="color:#9fb0d6">WiFi aur GPU apne aap pehchane jate hain, aur sahi driver lagaya ja sakta hai.</div>';
+  let w1='';
+  (h.wifi||[]).forEach((x,i)=>{const ok=x.driver&&x.iface;
+   w1+='<div style="margin-top:8px"><div>'+esc(x.name)+'</div><div style="color:#9fb0d6;font-size:13px">ID '+esc(x.id)+' &nbsp; Driver: <b>'+(x.driver?esc(x.driver):'nahi mila')+'</b> &nbsp; Interface: <b>'+(x.iface?esc(x.iface):'nahi')+'</b>'+(x.state?' &nbsp; '+esc(x.state):'')+'</div>'+
+   (ok?'<div style="color:#4ade80">✔ WiFi taiyar hai</div>':'<div style="color:#fbbf24">⚠ Driver ya firmware nahi laga</div>')+
+   (x.blocked?'<div style="color:#fbbf24">WiFi band hai (rfkill)</div>'+b('rf','WiFi chalu karo','#16a34a'):'')+
+   (x.fix&&x.fix.length?b('wf'+i,'Driver install karo ('+x.fix.join(', ')+')','#16a34a'):'')+'</div>'});
+  (h.usb_wifi||[]).forEach(x=>{w1+='<div style="margin-top:8px">USB WiFi: '+esc(x)+'</div>'});
+  o+=card('📶 WiFi',w1||'<div style="color:#fbbf24;margin-top:6px">Koi WiFi adapter nahi mila.</div>');
+  let g1='';
+  (h.gpu||[]).forEach((x,i)=>{g1+='<div style="margin-top:8px"><div>'+esc(x.name)+'</div><div style="color:#9fb0d6;font-size:13px">ID '+esc(x.id)+' &nbsp; Driver: <b>'+(x.driver?esc(x.driver):'nahi mila')+'</b> &nbsp; 3D/DRM: <b>'+(x.drm?'haan':'nahi')+'</b></div>'+
+   (x.fix&&x.fix.length?'<div style="color:#fbbf24">⚠ Behtar driver mil sakta hai</div>'+b('gf'+i,'GPU driver install karo ('+x.fix.join(', ')+')','#16a34a'):'<div style="color:#4ade80">✔ GPU driver theek hai</div>')+'</div>'});
+  o+=card('🖥 GPU',g1||'<div style="color:#fbbf24;margin-top:6px">Koi GPU nahi mila.</div>');
+  if(st.status==='running')o+='<div style="color:#fbbf24">⏳ '+esc(st.msg)+'</div>';
+  else if(st.status)o+='<div style="color:'+(st.status==='done'?'#4ade80':'#fca5a5')+'">'+esc(st.msg)+'</div>';
+  o+=b('rs','Dobara scan karo','#334155')+'<div style="color:#9fb0d6;font-size:12px;margin-top:10px">Driver Linux kernel ke hote hain; ye service unhe pehchan kar sahi package lagati hai. Internet chahiye.</div>';
+  R.innerHTML=o;
+  const fixes=[].concat((h.wifi||[]).map(x=>x.fix||[]),(h.gpu||[]).map(x=>x.fix||[]));
+  R.querySelectorAll('button').forEach(bt=>bt.onclick=async()=>{const k=bt.dataset.k;busy=false;
+   if(k==='rs'){draw();return}
+   if(k==='rf'){await post('/api/hw/fix',{kind:'rfkill'});draw();return}
+   const wl=(h.wifi||[]).length,i=parseInt(k.slice(2));const pk=k[0]==='w'?(h.wifi[i].fix||[]):(h.gpu[i].fix||[]);
+   const r=await post('/api/hw/fix',{kind:'pkgs',pkgs:pk});if(!r.ok)alert(r.msg||'error');draw()});
+ }catch(e){R.textContent='⚠ Hardware service chal nahi rahi'}busy=false};
+ draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}api('/api/hw/status').then(s=>{if(s.status==='running')draw()}).catch(()=>{})},3000);
+ return w};
 window.openUpdate=function(){
  const w=createWindow('Update','🔄','<div class="up" style="padding:18px;font:14px/1.6 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',500,480);
  const R=w.querySelector('.up');let busy=false,ist=null;
@@ -163,6 +196,7 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('WiFi & Power'))window.smApps.push(['WiFi & Power','📶','#14b8a6','#0f766e','System','openLinuxApps']);
  if(!has('Terminal'))window.smApps.push(['Terminal','💻','#334155','#0f172a','System','openTerminal']);
  if(!has('Lock'))window.smApps.push(['Lock','🔒','#64748b','#334155','System','openLock']);
+ if(!has('Hardware'))window.smApps.push(['Hardware','🧩','#10b981','#047857','System','openHardware']);
  if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);

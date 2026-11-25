@@ -22,7 +22,7 @@ rm -f $R/tmp/chrome.deb $R/etc/apt/sources.list.d/google-chrome.list
 chroot $R fc-cache -f >/dev/null 2>&1 || true
 # installer + boot splash tools
 mkdir -p $R/etc/initramfs-tools; echo 'update_initramfs=no' > $R/etc/initramfs-tools/update-initramfs.conf
-for p in "xdotool wmctrl x11-utils" "dbus-x11 xfce4-session openbox xfwm4 xfce4-panel xfdesktop4 xfce4-settings xfconf" "thunar xfce4-terminal xfce4-whiskermenu-plugin xfce4-notifyd xfce4-power-manager xfce4-screensaver xfce4-taskmanager" "network-manager-gnome adwaita-icon-theme arc-theme gvfs xdg-utils desktop-file-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less" "plymouth"; do
+for p in "xdotool wmctrl x11-utils" "dbus-x11 xfce4-session openbox xfwm4 xfce4-panel xfdesktop4 xfce4-settings xfconf" "thunar xfce4-terminal xfce4-whiskermenu-plugin xfce4-notifyd xfce4-power-manager xfce4-screensaver xfce4-taskmanager" "network-manager-gnome adwaita-icon-theme arc-theme gvfs xdg-utils desktop-file-utils" "pcmanfm" "featherpad" "firefox-esr" "grub2-common grub-common grub-pc-bin grub-efi-amd64-bin" "dosfstools fdisk e2fsprogs nano less pciutils usbutils" "plymouth"; do
   chroot $R apt-get install -y --no-install-recommends -o Dpkg::Options::=--force-confold -o Dpkg::Options::=--force-confdef $p 2>&1 | tail -15 || true
   chroot $R dpkg --configure -a 2>&1 | tail -5 || true
 done
@@ -56,7 +56,7 @@ window.__native=1;window.smApps=[];
 window.createWindow=function(name,icon,html){document.title=name;var d=document.getElementById('root');d.innerHTML=html;return d};
 </script><script>"""+js+"""</script><script>
 (function(){var a=new URLSearchParams(location.search).get('app')||'update';
-var m={update:'openUpdate',store:'openAppStore',sysinfo:'openSysInfo',install:'openInstaller',wifi:'openLinuxApps'};
+var m={update:'openUpdate',store:'openAppStore',sysinfo:'openSysInfo',install:'openInstaller',wifi:'openLinuxApps',hw:'openHardware'};
 setTimeout(function(){var f=window[m[a]];if(f)f();else document.body.textContent='App nahi mila: '+a},300)})();
 </script></body></html>"""
 open(r+"/opt/smartos/native.html","w").write(page)

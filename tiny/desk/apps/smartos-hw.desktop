@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Hardware (WiFi & GPU)
+Comment=WiFi aur GPU pehchano aur driver lagao
+Exec=/usr/local/bin/smartos-webapp hw 580 640
+Icon=smartos
+Categories=System;Settings;
+Terminal=false

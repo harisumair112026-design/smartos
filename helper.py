@@ -128,6 +128,73 @@ def apt_run():
         r = subprocess.run(sudo_cmd(["apt-get", "-y", "-o", "Dpkg::Options::=--force-confold", "upgrade"]), capture_output=True, text=True, env=env, timeout=3000)
         APT.update(status="done" if r.returncode == 0 else "fail", msg="Debian updates lag gaye" if r.returncode == 0 else ((r.stderr or r.stdout).strip().splitlines() or ["error"])[-1][:200])
     except Exception as e: APT.update(status="fail", msg=str(e)[:200])
+# ===== Hardware service: WiFi / GPU detect + sahi driver =====
+HW = {"status": "", "msg": ""}
+VEND = {"8086": "Intel", "1002": "AMD", "10de": "NVIDIA", "10ec": "Realtek", "168c": "Qualcomm Atheros", "17cb": "Qualcomm", "14e4": "Broadcom", "14c3": "MediaTek", "1b4b": "Marvell", "1234": "QEMU/VM", "1af4": "Virtio/VM", "15ad": "VMware", "80ee": "VirtualBox"}
+WIFI_PKG = {"8086": ["firmware-iwlwifi"], "10ec": ["firmware-realtek"], "168c": ["firmware-atheros"], "17cb": ["firmware-atheros"], "14e4": ["firmware-brcm80211"], "14c3": ["firmware-mediatek"]}
+GPU_PKG = {"1002": ["firmware-amd-graphics", "xserver-xorg-video-amdgpu"], "10de": ["xserver-xorg-video-nouveau"], "8086": []}
+HW_ALLOW = {p for v in list(WIFI_PKG.values()) + list(GPU_PKG.values()) for p in v}
+def _rd(f):
+    try: return open(f).read().strip()
+    except Exception: return ""
+def _run(c, t=8):
+    try: return subprocess.run(c, capture_output=True, text=True, timeout=t).stdout
+    except Exception: return ""
+def pci_name(slot, ven, dev):
+    o = _run(["lspci", "-s", slot, "-mm"]).strip()
+    if o:
+        try:
+            import shlex
+            parts = shlex.split(o)
+            return (parts[2 + 1] + " " + parts[3 + 1]).strip() if len(parts) > 4 else o
+        except Exception: pass
+    return "%s [%s:%s]" % (VEND.get(ven, "Device"), ven, dev)
+def hw_scan():
+    base = "/sys/bus/pci/devices"
+    wifi, gpu = [], []
+    ifs = {}
+    for l in _run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "dev"]).splitlines():
+        a = l.split(":")
+        if len(a) >= 3 and a[1] == "wifi": ifs[a[0]] = a[2]
+    blocked = "blocked: yes" in _run(["rfkill", "list", "wifi"]).lower() if shutil_which("rfkill") else False
+    try: slots = sorted(os.listdir(base))
+    except Exception: slots = []
+    for sl in slots:
+        d = base + "/" + sl
+        cls = _rd(d + "/class")[2:8]; ven = _rd(d + "/vendor")[2:]; dev = _rd(d + "/device")[2:]
+        drv = os.path.basename(os.path.realpath(d + "/driver")) if os.path.exists(d + "/driver") else ""
+        if cls.startswith("0280") or cls.startswith("0282"):
+            net = os.listdir(d + "/net") if os.path.isdir(d + "/net") else []
+            wifi.append({"slot": sl, "name": pci_name(sl, ven, dev), "vendor": VEND.get(ven, ven), "id": ven + ":" + dev, "driver": drv, "iface": net[0] if net else "", "state": ifs.get(net[0], "") if net else "", "blocked": blocked,
+                         "fix": WIFI_PKG.get(ven, []) if (not drv or not net) else []})
+        elif cls.startswith("03"):
+            gpu.append({"slot": sl, "name": pci_name(sl, ven, dev), "vendor": VEND.get(ven, ven), "id": ven + ":" + dev, "driver": drv, "drm": os.path.exists("/dev/dri/card0"),
+                        "fix": GPU_PKG.get(ven, []) if (not drv or drv in ("vesafb", "simplefb", "vga16fb")) else []})
+    usbw = []
+    for l in _run(["lsusb"]).splitlines():
+        if re.search(r"wireless|wlan|802\.11|wifi|wi-fi", l, re.I): usbw.append(l.split(" ", 6)[-1] if len(l.split(" ", 6)) > 6 else l)
+    nets = [n for n in (os.listdir("/sys/class/net") if os.path.isdir("/sys/class/net") else []) if os.path.isdir("/sys/class/net/%s/wireless" % n)]
+    if not wifi and nets:
+        for n in nets: wifi.append({"slot": "", "name": "WiFi (%s)" % n, "vendor": "", "id": "", "driver": "", "iface": n, "state": ifs.get(n, ""), "blocked": blocked, "fix": []})
+    return {"ok": True, "wifi": wifi, "usb_wifi": usbw, "gpu": gpu, "wifi_ifaces": nets}
+def shutil_which(c):
+    for d in os.environ.get("PATH", "").split(":"):
+        if os.path.exists(d + "/" + c): return True
+    return False
+def hw_fix_run(kind, pk):
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    try:
+        if kind == "rfkill":
+            subprocess.run(sudo_cmd(["rfkill", "unblock", "wifi"]), capture_output=True, timeout=10)
+            HW.update(status="done", msg="WiFi unblock ho gaya"); return
+        HW.update(status="running", msg="Driver/firmware install ho raha hai (internet chahiye)...")
+        subprocess.run(sudo_cmd(["apt-get", "update", "-qq"]), capture_output=True, env=env, timeout=300)
+        r = subprocess.run(sudo_cmd(["apt-get", "install", "-y", "--no-install-recommends", "-o", "Dpkg::Options::=--force-confold"] + pk), capture_output=True, text=True, env=env, timeout=1800)
+        if r.returncode != 0: HW.update(status="fail", msg=((r.stderr or r.stdout).strip().splitlines() or ["error"])[-1][:200]); return
+        for m in ("iwlwifi", "ath9k", "ath10k_pci", "rtw88_pci", "brcmfmac", "mt7921e", "amdgpu", "nouveau"):
+            subprocess.run(sudo_cmd(["modprobe", m]), capture_output=True, timeout=20)
+        HW.update(status="done", msg="Ho gaya. Ab dobara scan karo; zaroorat ho to restart karo.")
+    except Exception as e: HW.update(status="fail", msg=str(e)[:200])
 TERMS = {}
 GUIS = {}
 XAPPS = {}
@@ -304,6 +371,10 @@ class H(http.server.SimpleHTTPRequestHandler):
                 try: m = fetch_manifest()
                 except Exception as e: return s.j({"ok": False, "msg": "Internet ya server nahi mila", "current": local_version(), "live": is_live()})
                 return s.j({"ok": True, "current": local_version(), "latest": int(m["version"]), "available": int(m["version"]) > local_version(), "notes": str(m.get("notes", ""))[:500], "size": m.get("size", 0), "iso_url": str(m.get("iso_url", "")), "live": is_live()})
+            if u.path == "/api/hw/scan":
+                try: return s.j(hw_scan())
+                except Exception as e: return s.j({"ok": False, "msg": str(e)[:200]})
+            if u.path == "/api/hw/status": return s.j(HW)
             if u.path == "/api/notice":
                 try: return s.j(fetch_notice())
                 except Exception: return s.j({"ok": False})
@@ -370,6 +441,13 @@ class H(http.server.SimpleHTTPRequestHandler):
             APT.update(status="running", msg="Debian updates lag rahe hain (internet chahiye)..."); threading.Thread(target=apt_run, daemon=True).start(); return s.j({"ok": True})
         if s.path == "/api/update/restart":
             subprocess.Popen(["sh", "-c", "sleep 1; " + ("pkill -x Xorg" if os.geteuid() == 0 else "sudo -n pkill -x Xorg")], start_new_session=True); return s.j({"ok": True})
+        if s.path == "/api/hw/fix":
+            kind = str(d.get("kind", "")); pk = [p for p in d.get("pkgs", []) if p in HW_ALLOW]
+            if HW.get("status") == "running": return s.j({"ok": True})
+            if kind == "pkgs" and not pk: return s.j({"ok": False, "msg": "koi driver package nahi mila"}, 400)
+            if kind not in ("pkgs", "rfkill"): return s.j({"ok": False, "msg": "galat kaam"}, 400)
+            HW.update(status="running", msg="shuru...")
+            threading.Thread(target=hw_fix_run, args=(kind, pk), daemon=True).start(); return s.j({"ok": True})
         if s.path == "/api/pkg/install":
             k = str(d.get("key", ""))
             if k not in PKGS: return s.j({"ok": False, "msg": "galat app"}, 404)
