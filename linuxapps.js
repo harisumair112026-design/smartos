@@ -97,6 +97,33 @@ window.openHardware=function(){
  draw();const iv=setInterval(()=>{if(!w.isConnected){clearInterval(iv);return}api('/api/hw/status').then(s=>{if(s.status==='running')draw()}).catch(()=>{})},3000);
  return w};
 window.openClassic=function(){if(!confirm('Classic desktop (XFCE) par jana hai? Screen dobara shuru hogi.'))return;post('/api/session/mode',{mode:'classic'})};
+window.openSync=function(){
+ const w=createWindow('Account & Sync','🔗','<div class="sy" style="padding:16px;font:14px/1.55 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto"></div>',540,620);
+ const R=w.querySelector('.sy');
+ const SKIP=['smartos_password','sm-pin','sm-notice','smh_cid'];
+ const b64=u=>btoa(String.fromCharCode.apply(null,Array.from(u))),ub=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+ const key=async(pw,salt)=>{const m=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt:salt,iterations:200000,hash:'SHA-256'},m,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])};
+ const pack=async pw=>{const d={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(SKIP.indexOf(k)<0)d[k]=localStorage.getItem(k)}
+  const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+  const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv:iv},await key(pw,salt),new TextEncoder().encode(JSON.stringify({v:1,t:Date.now(),n:Object.keys(d).length,d:d}))));
+  return 'SMOS1:'+btoa(JSON.stringify({s:b64(salt),i:b64(iv),c:b64(ct)}))};
+ const unpack=async(txt,pw)=>{txt=txt.trim();if(txt.indexOf('SMOS1:')!==0)throw new Error('Ye Smart OS backup nahi hai');
+  const o=JSON.parse(atob(txt.slice(6)));let pt;try{pt=await crypto.subtle.decrypt({name:'AES-GCM',iv:ub(o.i)},await key(pw,ub(o.s)),ub(o.c))}catch(e){throw new Error('Password galat hai ya code kharab hai')}
+  return JSON.parse(new TextDecoder().decode(pt))};
+ const inp='width:100%;box-sizing:border-box;background:#0f1a3a;color:#e2e8f5;border:1px solid #24305a;border-radius:9px;padding:9px;font:inherit;margin:4px 0';
+ const btn='background:#3b82f6;color:#fff;border:0;border-radius:9px;padding:9px 16px;margin:8px 8px 0 0;cursor:pointer';
+ R.innerHTML='<div style="font:700 20px system-ui">Account &amp; Sync</div><div style="color:#9fb0d6">Apna data (settings, apps, notes) password se lock karke doosre phone ya PC par le jao. Server nahi chahiye.</div>'+
+ '<div style="background:#121a33;border:1px solid #24305a;border-radius:12px;padding:12px;margin:12px 0"><b>⬆ Is device se bhejo (Export)</b><input id="sp1" type="password" placeholder="Ek password chuno" style="'+inp+'"><button id="sx" style="'+btn+'">Code banao</button><button id="sd" style="'+btn+'background:#334155">File save karo</button><textarea id="so" readonly placeholder="Code yahan aayega" style="'+inp+'height:70px"></textarea><div id="sm1" style="color:#9fb0d6"></div></div>'+
+ '<div style="background:#121a33;border:1px solid #24305a;border-radius:12px;padding:12px"><b>⬇ Is device par lo (Import)</b><textarea id="si" placeholder="Code yahan paste karo (SMOS1:...)" style="'+inp+'height:70px"></textarea><input id="sf" type="file" style="color:#9fb0d6;margin:4px 0"><input id="sp2" type="password" placeholder="Wahi password" style="'+inp+'"><button id="sm" style="'+btn+'background:#16a34a">Import karo</button><div id="sm2" style="color:#9fb0d6"></div></div>'+
+ '<div style="color:#6b7aa8;font-size:12px;margin-top:12px">Dhyan: sirf settings aur chhota data jata hai (badi files aur login password nahi). Live sync (apne aap) ke liye server chahiye, wo agla kadam hai. Password bhool gaye to code khul nahi sakta.</div>';
+ const q=i=>R.querySelector(i);let last='';
+ q('#sx').onclick=async()=>{const pw=q('#sp1').value;if(pw.length<6){q('#sm1').textContent='Password kam se kam 6 akshar ka rakho';return}q('#sm1').textContent='⏳ ban raha hai...';try{last=await pack(pw);q('#so').value=last;q('#sm1').textContent='✔ Ho gaya. Ye code doosre device par Import me paste karo.'}catch(e){q('#sm1').textContent='Error: '+e.message}};
+ q('#sd').onclick=()=>{if(!last){q('#sm1').textContent='Pehle "Code banao" dabao';return}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([last],{type:'text/plain'}));a.download='smartos-backup.txt';document.body.appendChild(a);a.click();a.remove()};
+ q('#sf').onchange=e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=()=>{q('#si').value=r.result};r.readAsText(f)}};
+ q('#sm').onclick=async()=>{try{const o=await unpack(q('#si').value,q('#sp2').value);const n=Object.keys(o.d).length;
+  q('#sm2').innerHTML='Mile: <b>'+n+'</b> cheezein. <button id="sy2" style="'+btn+'background:#dc2626">Haan, badal do</button> (is device ka purana data isse badal jayega)';
+  q('#sy2').onclick=()=>{Object.keys(o.d).forEach(k=>{try{localStorage.setItem(k,o.d[k])}catch(e){}});q('#sm2').textContent='✔ Ho gaya. Smart OS dobara khul raha hai...';setTimeout(()=>location.reload(),900)}}catch(e){q('#sm2').textContent='❌ '+e.message}};
+ return w};
 window.openUpdate=function(){
  const w=createWindow('Update','🔄','<div class="up" style="padding:18px;font:14px/1.6 system-ui;color:#e2e8f5;background:#0b1020;height:100%;box-sizing:border-box;overflow:auto">⏳</div>',500,480);
  const R=w.querySelector('.up');let busy=false,ist=null;
@@ -199,6 +226,7 @@ setTimeout(async function(){if(!window.smApps)return;
  if(!has('Lock'))window.smApps.push(['Lock','🔒','#64748b','#334155','System','openLock']);
  if(!has('Hardware'))window.smApps.push(['Hardware','🧩','#10b981','#047857','System','openHardware']);
  if(!has('Classic Desktop'))window.smApps.push(['Classic Desktop','🖥️','#475569','#1e293b','System','openClassic']);
+ if(!has('Account & Sync'))window.smApps.push(['Account & Sync','🔗','#8b5cf6','#6d28d9','System','openSync']);
  if(!has('Update'))window.smApps.push(['Update','🔄','#0ea5e9','#0369a1','System','openUpdate']);
  if(!has('App Store'))window.smApps.push(['App Store','🛍️','#ec4899','#be185d','System','openAppStore']);
  if(!has('System Info'))window.smApps.push(['System Info','ℹ️','#6366f1','#4338ca','System','openSysInfo']);
