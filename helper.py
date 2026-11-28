@@ -441,10 +441,6 @@ class H(http.server.SimpleHTTPRequestHandler):
             APT.update(status="running", msg="Debian updates lag rahe hain (internet chahiye)..."); threading.Thread(target=apt_run, daemon=True).start(); return s.j({"ok": True})
         if s.path == "/api/update/restart":
             subprocess.Popen(["sh", "-c", "sleep 1; " + ("pkill -x Xorg" if os.geteuid() == 0 else "sudo -n pkill -x Xorg")], start_new_session=True); return s.j({"ok": True})
-        if s.path == "/api/session/mode":
-            m = str(d.get("mode", ""))
-            if m not in ("shell", "classic"): return s.j({"ok": False, "msg": "galat mode"}, 400)
-            subprocess.Popen(["/usr/local/bin/smartos-mode", m], start_new_session=True); return s.j({"ok": True})
         if s.path == "/api/hw/fix":
             kind = str(d.get("kind", "")); pk = [p for p in d.get("pkgs", []) if p in HW_ALLOW]
             if HW.get("status") == "running": return s.j({"ok": True})
